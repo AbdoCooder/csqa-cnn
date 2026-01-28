@@ -3,9 +3,11 @@ __pycache__/
 *.py[codz]
 *$py.class
 
+.vscode
+data/
+
 # C extensions
 *.so
-
 # Distribution / packaging
 .Python
 build/

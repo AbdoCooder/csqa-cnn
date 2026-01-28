@@ -1,0 +1,18 @@
+name: csqa-cnn
+channels:
+  - defaults
+  - conda-forge
+dependencies:
+  - python=3.11
+  - pip
+  - numpy
+  - pillow
+  - scikit-learn
+  - pip:
+    - tensorflow==2.20.0
+    - keras==3.13.0
+    - streamlit
+    - google-generativeai
+
+# use `conda env create -f environment.yml` to setup this env
+# To update an existing environment if you add a new package: `conda env update -f environment.yml --prune`
