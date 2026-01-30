@@ -5,7 +5,7 @@ __pycache__/
 
 .vscode
 data/
-
+tests/
 # C extensions
 *.so
 # Distribution / packaging
