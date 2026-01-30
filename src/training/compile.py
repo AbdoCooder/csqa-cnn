@@ -39,6 +39,3 @@ def create_compiled_model(input_shape=(224, 224, 3), num_classes=2, activation_f
 
     print("Model compiled and ready for training!")
     return model
-
-# Example usage
-# model = create_compiled_model()
