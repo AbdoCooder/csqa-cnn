@@ -16,6 +16,11 @@ dependencies:
     - supabase==2.27.2
     - python-dotenv==1.2.1
     - python-multipart==0.0.22
+    # dashboard
+    - streamlit
+    - pandas
+    - plotly
+    - google-generativeai
 
 # use `conda env create -f environment.yml` to setup this env
 # To update an existing environment if you add a new package: `conda env update -f environment.yml --prune`
