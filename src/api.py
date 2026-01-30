@@ -7,18 +7,27 @@ or `uvicorn api:app --reload` from the src/ directory
 
 """
 
+import os
 import sys
 from   pathlib    import Path
 from   io         import BytesIO
-from   fastapi    import FastAPI, UploadFile
+from   fastapi    import FastAPI, UploadFile, File, BackgroundTasks
+
 from   pydantic   import BaseModel
 import numpy      as np
 import tensorflow as tf
 import keras
+from dotenv import load_dotenv
+from supabase import create_client, Client
+
+
+load_dotenv()
+DB_URL = os.environ.get("DB_API")
+DB_KEY = os.environ.get("DB_SERVICE_ROLE_KEY")
+MODEL_NAME = os.environ.get("MODEL_NAME") or "mobilenet_dates.keras"
 
 SRC_DIR = Path(__file__).resolve(strict=True).parent
 MODELS_DIR = SRC_DIR.parent.joinpath('models')
-MODEL_NAME = 'mobilenet_dates.keras'
 TRAINED_MODEL_PATH = MODELS_DIR.joinpath(MODEL_NAME)
 CLASSES = ['Fresh', 'Dry']
 
@@ -28,6 +37,11 @@ class PredictionOut(BaseModel):
     confidence:float
 
 app = FastAPI()
+if DB_URL and DB_KEY:
+    supabase: Client = create_client(DB_URL, DB_KEY)
+else:
+    print("CRITICAL ERROR: Failed to Connect the database")
+    sys.exit(1)
 
 try:
     model = keras.models.load_model(TRAINED_MODEL_PATH)
@@ -37,8 +51,21 @@ except (FileNotFoundError, ValueError, OSError) as e:
     print(f"CRITICAL ERROR: Failed to load the model: {e}")
     sys.exit(1)
 
+async def log_prediction(filename: str, label: str, confidence: float):
+    """Saves the prediction to Supabase without blocking the main thread."""
+    try:
+        data = {
+            "filename": filename,
+            "prediction": label,
+            "confidence": confidence
+        }
+        supabase.table("logs").insert(data).execute()
+        print(f"📝 Logged to DB: {filename}")
+    except (ConnectionError, ValueError, TypeError) as e:
+        print(f"❌ DB Log Failed: {e}")
+
 @app.post("/upload_and_predict/", response_model=PredictionOut)
-def upload_and_predict(file: UploadFile):
+def upload_and_predict(background_tasks: BackgroundTasks, file: UploadFile = File(...)):
     """
     Endpoint to upload an image and get a prediction.
 
@@ -61,6 +88,8 @@ def upload_and_predict(file: UploadFile):
     # Get the predicted class and confidence
     predicted_class = CLASSES[np.argmax(score)]
     confidence = float(100 * np.max(score))
+
+    background_tasks.add_task(log_prediction, file.file.name, predicted_class, confidence)
 
     return PredictionOut(predicted_class=predicted_class, confidence=confidence)
 

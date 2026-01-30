@@ -13,7 +13,9 @@ dependencies:
     - fastapi==0.128.0
     - uvicorn==0.40.0
     - tf_keras==2.20.1
-    - python-multipart
+    - supabase==2.27.2
+    - python-dotenv==1.2.1
+    - python-multipart==0.0.22
 
 # use `conda env create -f environment.yml` to setup this env
 # To update an existing environment if you add a new package: `conda env update -f environment.yml --prune`
