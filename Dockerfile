@@ -5,12 +5,12 @@ WORKDIR /app
 COPY environment.yml .
 
 RUN micromamba install --yes \
-    --name base \
-    -f environment.yml \
-    && micromamba clean --all --yes
+  --name base \
+  -f environment.yml \
+  && micromamba clean --all --yes
 
 ARG MAMBA_DOCKERFILE_ACTIVATE=1
 
 COPY . .
 
-ENTRYPOINT ["uvicorn", "src.api:app", "--host", "0.0.0.0", "--port", "8000"]
+ENTRYPOINT ["micromamba", "run", "-n", "base", "uvicorn", "src.api:app", "--host", "0.0.0.0", "--port", "8000"]
