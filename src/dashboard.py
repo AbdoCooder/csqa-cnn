@@ -43,6 +43,7 @@ if __name__ == '__main__':
     st.write("# Real-time monitoring of a Smart Harvest Sorting and Quality Analysis System")
 
     data = load_data()
+    st.write(data)
     if data is not None:
         if st.button("🔄 Refresh Data"):
             st.rerun()
@@ -72,3 +73,5 @@ if __name__ == '__main__':
     fig.update_traces(textposition='inside', textinfo='percent+label')
     fig.update_layout(showlegend=True)
     st.plotly_chart(fig)
+
+    st.file_uploader("Choose a file")
