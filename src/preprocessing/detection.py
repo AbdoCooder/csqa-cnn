@@ -7,7 +7,7 @@ Original file is located at
     https://colab.research.google.com/drive/16Gr9igQHeqHKyAcbHcHRemNAcA5hAQEd
 """
 
-import matplotlib.pyplot as plt
+# import matplotlib.pyplot as plt
 import logging
 import cv2
 import numpy as np
@@ -21,22 +21,22 @@ CROP_PADDING = 10
 MORPH_KERNEL = (7, 7)
 DARK_CROP_THRESHOLD = 20
 
-def show(img, title="", cmap=None):
-    plt.figure(figsize=(5, 5))
-    if len(img.shape) == 2:
-        plt.imshow(img, cmap=cmap or "gray")
-    else:
-        plt.imshow(cv2.cvtColor(img, cv2.COLOR_BGR2RGB))
-    plt.title(title)
-    plt.axis("off")
-    plt.show()
+# def show(img, title="", cmap=None):
+#     plt.figure(figsize=(5, 5))
+#     if len(img.shape) == 2:
+#         plt.imshow(img, cmap=cmap or "gray")
+#     else:
+#         plt.imshow(cv2.cvtColor(img, cv2.COLOR_BGR2RGB))
+#     plt.title(title)
+#     plt.axis("off")
+    # plt.show()
 
 def _create_foreground_mask(image: np.ndarray) -> np.ndarray:
-    show(image, "Original Image")
+    # show(image, "Original Image")
 
     hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
     s_channel = hsv[:, :, 1]
-    show(s_channel, "HSV - Saturation Channel", cmap="gray")
+    # show(s_channel, "HSV - Saturation Channel", cmap="gray")
 
     blurred = cv2.GaussianBlur(s_channel, (5, 5), 0)
     # show(blurred, "Blurred S Channel", cmap="gray")
@@ -44,7 +44,7 @@ def _create_foreground_mask(image: np.ndarray) -> np.ndarray:
     _, mask = cv2.threshold(
         blurred, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU
     )
-    show(mask, "Thresholded Mask", cmap="gray")
+    # show(mask, "Thresholded Mask", cmap="gray")
 
     kernel = np.ones(MORPH_KERNEL, np.uint8)
     # show(kernel * 255, "Morph Kernel", cmap="gray")
@@ -53,7 +53,7 @@ def _create_foreground_mask(image: np.ndarray) -> np.ndarray:
     # show(mask, "After MORPH_CLOSE", cmap="gray")
 
     mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel, iterations=1)
-    show(mask, "After morphology (Final Mask)", cmap="gray")
+    # show(mask, "After morphology (Final Mask)", cmap="gray")
 
     return mask
 
@@ -129,7 +129,7 @@ if __name__ == '__main__':
 
         print(f"\n Total crops returned: {len(crops)}")
 
-        for i, crop in enumerate(crops):
-            show(crop, f" Final Crop {i}")
+        # for i, crop in enumerate(crops):
+            # show(crop, f" Final Crop {i}")
 
     run_on_local_image("data/date3.png")
