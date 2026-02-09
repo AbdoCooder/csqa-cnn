@@ -37,12 +37,15 @@ def detect_and_crop(image_bytes):
         x, y, w, h = cv2.boundingRect(cnt)
         area = w * h
         if area > 3000:
-            pad = 10
-            y1 = max(0, y - pad)
-            y2 = min(img.shape[0], y + h + pad)
-            x1 = max(0, x - pad)
-            x2 = min(img.shape[1], x + w + pad)
+            y1 = max(0, y - 10)
+            y2 = min(img.shape[0], y + h + 10)
+            x1 = max(0, x - 10)
+            x2 = min(img.shape[1], x + w + 10)
             crop = img[y1:y2, x1:x2]
+            mean_val = cv2.mean(crop)[0]
+            if mean_val < 30:
+                print(f"   🗑️ Ignored black corner artifact (Mean: {mean_val:.1f})")
+                continue
             cropped_images.append(crop)
 
     print(f"Processing complete. Found {len(cropped_images)} objects.")
