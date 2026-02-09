@@ -11,8 +11,8 @@ import requests
 
 
 # Configuration
-API_URL = 'https://csqa-cnn-api.onrender.com'
-# API_URL = 'http://localhost:8000' # Uncomment for local testing
+# API_URL = 'https://csqa-cnn-api.onrender.com'
+API_URL = 'http://0.0.0.0:8000' # Uncomment for local testing
 IMAGES_PATH = '/home/abdocooder/dev/computer-vision/project/csqa-cnn/data/test'
 DELAY = 2
 
