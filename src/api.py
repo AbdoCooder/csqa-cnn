@@ -32,8 +32,8 @@ def require_env(name: str) -> str:
     return value
 
 supabase: Client = create_client(
-    require_env("SUPABASE_URL"),
-    require_env("SUPABASE_KEY")
+    require_env("DB_API"),
+    require_env("DB_SERVICE_ROLE_KEY")
 )
 
 app = FastAPI()
