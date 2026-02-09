@@ -1,101 +1,111 @@
+"""FastAPI service for date fruit freshness classification.
+
+Exposes an endpoint that accepts images, detects individual date fruits,
+and classifies each as Fresh or Dry using a MobileNet model.
 """
-This module provides the diffrent API endpoints to
-interact with the AI model
-
-You can run the server using `uvicorn src.api:app --reload` from project root
-or `uvicorn api:app --reload` from the src/ directory
-
-"""
-
 import os
 import sys
-from   pathlib    import Path
-from   io         import BytesIO
-from   fastapi    import FastAPI, UploadFile, File, BackgroundTasks
+from pathlib import Path
 
-from   pydantic   import BaseModel
-import numpy      as np
-import tensorflow as tf
+import cv2
 import keras
+import numpy as np
+import tensorflow as tf
 from dotenv import load_dotenv
-from supabase import create_client, Client
+from fastapi import BackgroundTasks, FastAPI, File, UploadFile
+from pydantic import BaseModel
+from supabase import Client, create_client
 
+from .preprocessing.detection import detect_and_crop
 
 load_dotenv()
-DB_URL = os.environ.get("DB_API")
-DB_KEY = os.environ.get("DB_SERVICE_ROLE_KEY")
-MODEL_NAME = os.environ.get("MODEL_NAME") or "mobilenet_dates.keras"
 
-SRC_DIR = Path(__file__).resolve(strict=True).parent
-MODELS_DIR = SRC_DIR.parent.joinpath('models')
-TRAINED_MODEL_PATH = MODELS_DIR.joinpath(MODEL_NAME)
+SRC_DIR = Path(__file__).resolve().parent
+MODEL_PATH = SRC_DIR.parent / 'models' / 'mobilenet_dates.keras'
 CLASSES = ['Fresh', 'Dry']
 
-class PredictionOut(BaseModel):
-    """Model's Output"""
-    predicted_class:str
-    confidence:float
+def require_env(name: str) -> str:
+    """Return required environment variable or raise a clear error."""
+    value = os.environ.get(name)
+    if not value:
+        raise RuntimeError(f"Missing required environment variable: {name}")
+    return value
+
+supabase: Client = create_client(
+    require_env("SUPABASE_URL"),
+    require_env("SUPABASE_KEY")
+)
 
 app = FastAPI()
-if DB_URL and DB_KEY:
-    supabase: Client = create_client(DB_URL, DB_KEY)
-else:
-    print("CRITICAL ERROR: Failed to Connect the database")
-    sys.exit(1)
 
 try:
-    model = keras.models.load_model(TRAINED_MODEL_PATH)
-    model.summary() # type: ignore
-    print("Model loaded successfully!")
-except (FileNotFoundError, ValueError, OSError) as e:
-    print(f"CRITICAL ERROR: Failed to load the model: {e}")
+    model = keras.models.load_model(MODEL_PATH)
+    print(f"Model loaded: {MODEL_PATH.name}")
+except (FileNotFoundError, OSError, ValueError) as e:
+    print(f"Failed to load model: {e}")
     sys.exit(1)
 
-async def log_prediction(filename: str, label: str, confidence: float):
-    """Saves the prediction to Supabase without blocking the main thread."""
+
+class SinglePrediction(BaseModel):
+    """Classification result for a single detected date fruit."""
+
+    predicted_class: str
+    confidence: float
+
+
+class BatchPredictionOut(BaseModel):
+    """Response containing predictions for all dates found in an image."""
+
+    filename: str
+    total_dates_found: int
+    results: list[SinglePrediction]
+
+
+def preprocess_crop(crop):
+    """Resize crop to 224x224 and add batch dimension for model input."""
+    resized = cv2.resize(crop, (224, 224))
+    return tf.expand_dims(resized, 0)
+
+
+def log_prediction(filename: str, label: str, confidence: float):
+    """Insert prediction record into Supabase logs table."""
     try:
-        data = {
+        supabase.table("logs").insert({
             "filename": filename,
             "prediction": label,
             "confidence": confidence
-        }
-        supabase.table("logs").insert(data).execute()
-        print(f"📝 Logged to DB: {filename}")
-    except (ConnectionError, ValueError, TypeError) as e:
-        print(f"❌ DB Log Failed: {e}")
+        }).execute()
+    except (OSError, ValueError) as e:
+        print(f"DB log failed: {e}")
 
-@app.post("/upload_and_predict/", response_model=PredictionOut)
-def upload_and_predict(background_tasks: BackgroundTasks, file: UploadFile = File(...)):
-    """
-    Endpoint to upload an image and get a prediction.
 
-    Args:
-        file: The uploaded image file.
+@app.post("/upload_and_predict/", response_model=BatchPredictionOut)
+async def upload_and_predict(background_tasks: BackgroundTasks, file: UploadFile = File(...)):
+    """Detect date fruits in uploaded image and classify each one."""
+    image_bytes = await file.read()
+    crops = detect_and_crop(image_bytes)
 
-    Returns:
-        PredictionOut: A dict containing the predicted class (str) and confidence (float).
-    """
+    filename = file.filename or "upload"
 
-    img = keras.utils.load_img(BytesIO(file.file.read()), target_size=(224, 224))
+    predictions = []
+    for i, crop in enumerate(crops):
+        preds = model.predict(preprocess_crop(crop), verbose=0)
+        score = tf.nn.softmax(preds[0])
 
-    image_array = keras.utils.img_to_array(img)
-    image_array = tf.expand_dims(image_array, 0)  # Create a batch dimension
+        label = CLASSES[np.argmax(score)]
+        confidence = float(100 * np.max(score))
 
-    # Make a prediction
-    predictions = model.predict(image_array, verbose=0) # type: ignore
-    score = tf.nn.softmax(predictions[0])
+        predictions.append(SinglePrediction(predicted_class=label, confidence=confidence))
+        background_tasks.add_task(log_prediction, f"{filename}_{i}", label, confidence)
 
-    # Get the predicted class and confidence
-    predicted_class = CLASSES[np.argmax(score)]
-    confidence = float(100 * np.max(score))
+    return BatchPredictionOut(
+        filename=filename,
+        total_dates_found=len(crops),
+        results=predictions
+    )
 
-    background_tasks.add_task(log_prediction, file.file.name, predicted_class, confidence)
-
-    return PredictionOut(predicted_class=predicted_class, confidence=confidence)
 
 @app.get('/')
-def hi():
-    """
-    Simple methode to test that the API is working correctly
-    """
-    return {'Message' : 'Hello API'}
+def health_check():
+    """Return service status and loaded model name."""
+    return {'status': 'healthy', 'model': MODEL_PATH.name}
