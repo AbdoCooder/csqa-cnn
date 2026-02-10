@@ -1,0 +1,11 @@
+services:
+  latex:
+    image: texlive/texlive:latest
+    volumes:
+      - .:/workdir
+    working_dir: /workdir
+    command: >
+      latexmk -pdf -interaction=nonstopmode -file-line-error report_outline.tex
+
+# Generate PDF using:
+# docker compose up && docker compose run --rm latex latexmk -c && rm -f report_outline.bbl

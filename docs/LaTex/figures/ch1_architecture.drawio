@@ -1,0 +1,64 @@
+<mxfile scale="1" border="0">
+  <diagram name="Page-1" id="Wxe492Nm9BzF_i476lyk">
+    <mxGraphModel dx="1175" dy="2158" grid="0" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="1100" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="gqAPHJgSr76_YRHsV_S2-21" value="" style="group;fontSize=44;" parent="1" connectable="0" vertex="1">
+          <mxGeometry x="62" y="30" width="725.2" height="1040" as="geometry" />
+        </mxCell>
+        <mxCell id="gqAPHJgSr76_YRHsV_S2-9" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;fontSize=25;" parent="gqAPHJgSr76_YRHsV_S2-21" source="gqAPHJgSr76_YRHsV_S2-1" target="gqAPHJgSr76_YRHsV_S2-3" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="gqAPHJgSr76_YRHsV_S2-1" value="Edge Layer (IoT Camera Simulation)" style="rounded=0;whiteSpace=wrap;html=1;fontSize=25;" parent="gqAPHJgSr76_YRHsV_S2-21" vertex="1">
+          <mxGeometry x="140.42870324020836" y="30" width="444.35240478928506" height="74.28150943396226" as="geometry" />
+        </mxCell>
+        <mxCell id="gqAPHJgSr76_YRHsV_S2-11" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;fontSize=25;" parent="gqAPHJgSr76_YRHsV_S2-21" source="gqAPHJgSr76_YRHsV_S2-3" target="gqAPHJgSr76_YRHsV_S2-10" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="gqAPHJgSr76_YRHsV_S2-3" value="" style="rounded=0;whiteSpace=wrap;html=1;fontSize=25;" parent="gqAPHJgSr76_YRHsV_S2-21" vertex="1">
+          <mxGeometry x="0.9285531370038415" y="167.1428571428571" width="724.2714468629962" height="297.1428571428571" as="geometry" />
+        </mxCell>
+        <mxCell id="gqAPHJgSr76_YRHsV_S2-7" value="Application Layer (FastAPI Cloud API)" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;fontSize=25;" parent="gqAPHJgSr76_YRHsV_S2-21" vertex="1">
+          <mxGeometry x="149.49705505761847" y="204.28571428571425" width="427.1344430217671" height="37.14285714285714" as="geometry" />
+        </mxCell>
+        <mxCell id="gqAPHJgSr76_YRHsV_S2-16" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;fontSize=25;" parent="gqAPHJgSr76_YRHsV_S2-21" source="gqAPHJgSr76_YRHsV_S2-10" target="gqAPHJgSr76_YRHsV_S2-15" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="gqAPHJgSr76_YRHsV_S2-10" value="Data Layer (Supabase / PostgreSQL)" style="rounded=0;whiteSpace=wrap;html=1;fontSize=25;" parent="gqAPHJgSr76_YRHsV_S2-21" vertex="1">
+          <mxGeometry x="136.03325441385377" y="535.7184905660378" width="454.1636744909694" height="83.57283018867925" as="geometry" />
+        </mxCell>
+        <mxCell id="gqAPHJgSr76_YRHsV_S2-15" value="" style="rounded=0;whiteSpace=wrap;html=1;fontSize=25;" parent="gqAPHJgSr76_YRHsV_S2-21" vertex="1">
+          <mxGeometry x="0.9811269701684369" y="692.8571428571425" width="724.2714468629962" height="297.1428571428571" as="geometry" />
+        </mxCell>
+        <mxCell id="gqAPHJgSr76_YRHsV_S2-17" value="Management Layer" style="text;whiteSpace=wrap;fontSize=25;" parent="gqAPHJgSr76_YRHsV_S2-21" vertex="1">
+          <mxGeometry x="251.75718054522093" y="735.0943396226415" width="220.7535682878983" height="44.15094339622642" as="geometry" />
+        </mxCell>
+        <mxCell id="3" value="" style="group" vertex="1" connectable="0" parent="gqAPHJgSr76_YRHsV_S2-21">
+          <mxGeometry x="55.71318822023049" y="814.2857142857141" width="612.8450704225354" height="130" as="geometry" />
+        </mxCell>
+        <mxCell id="gqAPHJgSr76_YRHsV_S2-18" value="Streamlit Dashboard" style="rounded=0;whiteSpace=wrap;html=1;fontSize=25;" parent="3" vertex="1">
+          <mxGeometry width="259.9948783610756" height="129.99999999999997" as="geometry" />
+        </mxCell>
+        <mxCell id="gqAPHJgSr76_YRHsV_S2-19" value="Google Gemini" style="rounded=0;whiteSpace=wrap;html=1;fontSize=25;" parent="3" vertex="1">
+          <mxGeometry x="352.8501920614597" width="259.9948783610756" height="129.99999999999997" as="geometry" />
+        </mxCell>
+        <mxCell id="gqAPHJgSr76_YRHsV_S2-20" value="+" style="text;whiteSpace=wrap;fontSize=40;" parent="3" vertex="1">
+          <mxGeometry x="293.78002560819465" y="35.85714285714289" width="37.142125480153666" height="74.28571428571428" as="geometry" />
+        </mxCell>
+        <mxCell id="4" value="" style="group" vertex="1" connectable="0" parent="gqAPHJgSr76_YRHsV_S2-21">
+          <mxGeometry x="55.71318822023049" y="287.8571428571428" width="612.8450704225354" height="130" as="geometry" />
+        </mxCell>
+        <mxCell id="gqAPHJgSr76_YRHsV_S2-5" value="detection.py (CV)" style="rounded=0;whiteSpace=wrap;html=1;fontSize=25;" parent="4" vertex="1">
+          <mxGeometry width="259.9948783610756" height="129.99999999999997" as="geometry" />
+        </mxCell>
+        <mxCell id="gqAPHJgSr76_YRHsV_S2-6" value="&lt;font style=&quot;color: light-dark(rgb(0, 0, 0), rgb(255, 255, 255));&quot;&gt;MobileNetV2 Model&lt;/font&gt;&lt;div&gt;&lt;font style=&quot;color: light-dark(rgb(0, 0, 0), rgb(255, 255, 255));&quot;&gt;(Classification)&lt;/font&gt;&lt;/div&gt;" style="rounded=0;whiteSpace=wrap;html=1;fontSize=25;" parent="4" vertex="1">
+          <mxGeometry x="352.8501920614597" width="259.9948783610756" height="129.99999999999997" as="geometry" />
+        </mxCell>
+        <mxCell id="gqAPHJgSr76_YRHsV_S2-8" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;fontSize=25;" parent="4" source="gqAPHJgSr76_YRHsV_S2-5" target="gqAPHJgSr76_YRHsV_S2-6" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
