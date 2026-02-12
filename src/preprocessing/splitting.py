@@ -5,8 +5,8 @@ import shutil
 import random
 
 # Default Values
-SOURCE_ROOT = "dates_dataset_ready"
-DEST_ROOT = "dates_dataset_final"
+SOURCE_ROOT = "/home/abenajib/csqa-cnn/data/dates_dataset_ready"
+DEST_ROOT = "/home/abenajib/csqa-cnn/data/dates_dataset_final"
 TRAIN_SPLIT = 0.8
 
 def split_dataset(source_root : str   = SOURCE_ROOT,

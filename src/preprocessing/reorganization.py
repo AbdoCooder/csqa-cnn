@@ -4,8 +4,7 @@ import os
 import shutil
 from pathlib import Path
 
-SOURCE_ROOT = "/PATH/TO/date-fruit-dataset/\
-  Date Fruit Dataset for Inspection and Grading/Augmented Date Fruit Dataset"
+SOURCE_ROOT = "/home/abenajib/csqa-cnn/data/Augmented Date Fruit Dataset"
 
 TARGET_ROOT = "dates_dataset_ready"
 

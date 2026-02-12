@@ -128,4 +128,4 @@ if __name__ == '__main__':
         for i, crop in enumerate(crops):
             show_and_save(crop, f" Final Crop {i}", n=f"final_crop_{i}")
 
-    run_on_local_image("data/date3.png")
+    run_on_local_image("/home/abenajib/csqa-cnn/docs/LaTex/figures/convoyer/original.png")

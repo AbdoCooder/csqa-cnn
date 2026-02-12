@@ -1,0 +1,43 @@
+<mxfile host="65bd71144e">
+    <diagram id="U7rqDIOjXS7XvgkY2tGO" name="Page-1">
+        <mxGraphModel dx="486" dy="443" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="1100" math="0" shadow="0">
+            <root>
+                <mxCell id="0"/>
+                <mxCell id="1" parent="0"/>
+                <mxCell id="B_1" value="Client POST&#xa;/upload_and_predict" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;arcSize=20;fontStyle=1" vertex="1" parent="1">
+                    <mxGeometry x="40" y="120" width="160" height="60" as="geometry"/>
+                </mxCell>
+                <mxCell id="B_2" value="Decode Image&#xa;(in BytesIO RAM)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+                    <mxGeometry x="240" y="120" width="140" height="60" as="geometry"/>
+                </mxCell>
+                <mxCell id="B_3" value="detect_and_crop()&#xa;(CV Preprocessing)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontStyle=1" vertex="1" parent="1">
+                    <mxGeometry x="420" y="120" width="140" height="60" as="geometry"/>
+                </mxCell>
+                <mxCell id="B_4" value="MobileNetV2&#xa;predict() (AI Inference)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontStyle=1" vertex="1" parent="1">
+                    <mxGeometry x="600" y="120" width="150" height="60" as="geometry"/>
+                </mxCell>
+                <mxCell id="B_5" value="Return JSON&#xa;(PredictionOut)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;arcSize=20;fontStyle=1" vertex="1" parent="1">
+                    <mxGeometry x="827" y="120" width="140" height="60" as="geometry"/>
+                </mxCell>
+                <mxCell id="B_DB" value="Supabase INSERT&#xa;(Logs)" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=15;fillColor=#ffe6cc;strokeColor=#d79b00;fontStyle=1" vertex="1" parent="1">
+                    <mxGeometry x="615" y="260" width="120" height="70" as="geometry"/>
+                </mxCell>
+                <mxCell id="E_1" edge="1" parent="1" source="B_1" target="B_2">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="E_2" edge="1" parent="1" source="B_2" target="B_3">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="E_3" edge="1" parent="1" source="B_3" target="B_4">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="E_4" edge="1" parent="1" source="B_4" target="B_5">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="E_BG" value="&lt;span&gt;(BackgroundTask)&lt;/span&gt;" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;dashed=1;fontColor=#666666;" edge="1" parent="1" source="B_4" target="B_DB">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+            </root>
+        </mxGraphModel>
+    </diagram>
+</mxfile>
