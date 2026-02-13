@@ -28,11 +28,11 @@ def show_and_save(img, title="", cmap=None, n='0'):
     cv2.imwrite(f"step_{n}.png", img)
 
 def _create_foreground_mask(image: np.ndarray) -> np.ndarray:
-    show_and_save(image, "Original Image", n='0')
+    # show_and_save(image, "Original Image", n='0')
 
     hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
     s_channel = hsv[:, :, 1]
-    show_and_save(s_channel, "HSV - Saturation Channel", cmap="gray", n='HSV')
+    # show_and_save(s_channel, "HSV - Saturation Channel", cmap="gray", n='HSV')
 
     blurred = cv2.GaussianBlur(s_channel, (5, 5), 0)
     # show_and_save(blurred, "Blurred S Channel", cmap="gray", n='blur')
@@ -40,16 +40,16 @@ def _create_foreground_mask(image: np.ndarray) -> np.ndarray:
     _, mask = cv2.threshold(
         blurred, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU
     )
-    show_and_save(mask, "Thresholded Mask", cmap="gray", n='threshold')
+    # show_and_save(mask, "Thresholded Mask", cmap="gray", n='threshold')
 
     kernel = np.ones(MORPH_KERNEL, np.uint8)
     # show_and_save(kernel * 255, "Morph Kernel", cmap="gray", n='0')
 
     mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel, iterations=2)
-    show_and_save(mask, "After MORPH_CLOSE", cmap="gray", n='morph_closex2')
+    # show_and_save(mask, "After MORPH_CLOSE", cmap="gray", n='morph_closex2')
 
     mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel, iterations=1)
-    show_and_save(mask, "After morphology (Final Mask)", cmap="gray", n='morph_openx1')
+    # show_and_save(mask, "After morphology (Final Mask)", cmap="gray", n='morph_openx1')
 
     return mask
 
@@ -125,7 +125,7 @@ if __name__ == '__main__':
 
         print(f"\n Total crops returned: {len(crops)}")
 
-        for i, crop in enumerate(crops):
-            show_and_save(crop, f" Final Crop {i}", n=f"final_crop_{i}")
+        # for i, crop in enumerate(crops):
+        #     show_and_save(crop, f" Final Crop {i}", n=f"final_crop_{i}")
 
     run_on_local_image("/home/abenajib/csqa-cnn/docs/LaTex/figures/convoyer/original.png")
