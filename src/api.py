@@ -20,11 +20,24 @@ import keras
 from dotenv import load_dotenv
 from supabase import create_client, Client
 
+from src.reporting.gemini_reporter import GeminiQCReporter
+from fastapi.middleware.cors import CORSMiddleware
+
+
+
+
+
 
 load_dotenv()
 DB_URL = os.environ.get("DB_API")
 DB_KEY = os.environ.get("DB_SERVICE_ROLE_KEY")
 MODEL_NAME = os.environ.get("MODEL_NAME") or "mobilenet_dates.keras"
+
+# Gemini API Key (LLM reporting)
+GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
+if not GEMINI_API_KEY:
+    print("CRITICAL ERROR: GEMINI_API_KEY is missing in .env")
+    sys.exit(1)
 
 SRC_DIR = Path(__file__).resolve(strict=True).parent
 MODELS_DIR = SRC_DIR.parent.joinpath('models')
@@ -36,7 +49,24 @@ class PredictionOut(BaseModel):
     predicted_class:str
     confidence:float
 
+
+
+
 app = FastAPI()
+
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],   # pour dev (plus tard on restreint)
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+
+    # Gemini reporter (LLM)
+reporter = GeminiQCReporter(model_name="gemini-2.5-flash")
+
 if DB_URL and DB_KEY:
     supabase: Client = create_client(DB_URL, DB_KEY)
 else:
@@ -92,6 +122,35 @@ def upload_and_predict(background_tasks: BackgroundTasks, file: UploadFile = Fil
     background_tasks.add_task(log_prediction, file.file.name, predicted_class, confidence)
 
     return PredictionOut(predicted_class=predicted_class, confidence=confidence)
+
+
+
+# ===============================
+# REPORTING (GEMINI)
+# ===============================
+
+class ReportIn(BaseModel):
+    total: int
+    fresh: int
+    dry: int
+
+
+class ReportOut(BaseModel):
+    report_md: str
+
+
+@app.post("/generate_report/", response_model=ReportOut)
+def generate_report(payload: ReportIn):
+    """
+    Generate a French Quality Control report using Gemini LLM.
+    """
+    report = reporter.generate_report(
+        total=payload.total,
+        fresh=payload.fresh,
+        dry=payload.dry
+    )
+    return ReportOut(report_md=report)
+
 
 @app.get('/')
 def hi():
