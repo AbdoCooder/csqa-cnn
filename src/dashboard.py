@@ -191,7 +191,7 @@ def render_image_predictor():
             from PIL import Image
             
             image = Image.open(uploaded_file)
-            st.image(image, caption="Uploaded Image", use_container_width=True)
+            st.image(image, caption="Uploaded Image", width=400)
             
             # Predict button
             if st.button("🤖 Analyze All Fruits", type="primary"):
