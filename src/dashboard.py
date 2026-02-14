@@ -191,7 +191,7 @@ def render_image_predictor():
             from PIL import Image
             
             image = Image.open(uploaded_file)
-            st.image(image, caption="Uploaded Image", use_column_width=True)
+            st.image(image, caption="Uploaded Image", use_container_width=True)
             
             # Predict button
             if st.button("🤖 Analyze All Fruits", type="primary"):
@@ -710,7 +710,7 @@ def main():
     
     # Sidebar
     with st.sidebar:
-        st.image("https://via.placeholder.com/200x80/1e40af/ffffff?text=Smart+Harvest", use_column_width=True)
+        st.image("https://via.placeholder.com/200x80/1e40af/ffffff?text=Smart+Harvest", use_container_width=True)
         st.markdown("### 🎛️ Dashboard Controls")
         
         if st.button("🔄 Refresh Data"):
