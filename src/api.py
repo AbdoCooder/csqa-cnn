@@ -104,11 +104,9 @@ class BatchPredictionOut(BaseModel):
 
 
 def preprocess_crop(crop):
-    """Resize crop to 224x224, normalize to [0,1] range, and add batch dimension for model input."""
+    """Resize crop to 224x224 and add batch dimension for model input."""
     resized = cv2.resize(crop, (224, 224))
-    # Normalize pixel values from [0, 255] to [0, 1] range
-    normalized = resized.astype(np.float32) / 255.0
-    return tf.expand_dims(normalized, 0)
+    return tf.expand_dims(resized, 0)
 
 
 def log_prediction(filename: str, label: str, confidence: float):
