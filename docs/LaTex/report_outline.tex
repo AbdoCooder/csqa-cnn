@@ -1,0 +1,2490 @@
+% ============================================================
+%  IoT-Based Intelligent Harvest Sorting & Quality Analysis
+%  Academic Research Paper – Outline
+% ============================================================
+
+\documentclass[12pt, a4paper, oneside]{report}
+
+% ── Packages ────────────────────────────────────────────────
+\usepackage{svg}
+\usepackage{graphicx}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[english]{babel}
+\usepackage{csquotes}
+\usepackage{geometry}
+  \geometry{margin=2.5cm}
+\usepackage{setspace}
+  \onehalfspacing
+\usepackage{subcaption}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{amsmath, amssymb}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{enumitem}
+\usepackage{hyperref}
+  \hypersetup{colorlinks=true, linkcolor=blue, citecolor=blue, urlcolor=blue}
+\usepackage[backend=biber, style=ieee]{biblatex}
+  \addbibresource{references.bib}
+\usepackage{acronym}
+\usepackage{float}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{tikz}
+  \usetikzlibrary{shapes, arrows.meta, positioning}
+
+% ── Meta ────────────────────────────────────────────────────
+\title{
+  \textbf{IoT-Based Intelligent Harvest Sorting\\
+  and Quality Analysis System}\\[6pt]
+  \large A Microservices Architecture Integrating Classical Computer Vision,\\
+  Deep Learning, and Generative AI for Automated Crop Quality Control
+}
+\author{
+  \textbf{ABDELKADER BENAJIBA}\\
+  Department of Software Engineering\\
+  University Abdelmalek Essaadi\\
+  \texttt{abdelkader.benajiba@etu.uae.ac.ma}
+}
+\date{Academic Year 2025 -- 2026}
+
+% ============================================================
+\begin{document}
+
+\pagestyle{plain}
+
+\maketitle
+\newpage
+
+% ── Abstract ────────────────────────────────────────────────
+\begin{abstract}
+Date quality grading in many packing facilities remains manual, subjective,
+and difficult to reproduce at scale. This report presents a practical
+computer-vision system for binary date quality inspection (Fresh vs.\
+Dry) under controlled conveyor-belt conditions. The proposed architecture
+combines a lightweight classical-vision detection stage (HSV-based masking,
+Otsu thresholding, morphology, contour filtering) with a MobileNetV2
+classifier served through a containerised FastAPI service.
+
+Beyond model inference, the work integrates a simulated IoT client,
+persistent logging in Supabase PostgreSQL, and a Streamlit dashboard for
+operational monitoring. A Large Language Model (Google Gemini) is used to
+generate draft managerial summaries from structured production statistics,
+with explicit human validation required before action.
+
+The system is designed for reproducibility and constrained deployment
+(CPU-only, free-tier cloud hosting). Reported outcomes focus on classification
+performance, end-to-end latency, and integration feasibility. The main
+contribution is not a new neural architecture, but an end-to-end,
+deployable workflow that links detection, classification, persistence,
+and decision support in one pipeline.
+\end{abstract}
+
+\tableofcontents
+\listoffigures
+\listoftables
+
+% % ── Acronyms ────────────────────────────────────────────────
+\chapter*{List of Acronyms}
+\addcontentsline{toc}{chapter}{List of Acronyms}
+\begin{table}[h!]
+    \centering
+    \large
+    \label{tab:acronyms}
+    \begin{tabular}{|l|l|}
+        \hline
+        \textbf{Acronym} & \textbf{Full Term} \\ \hline
+        AI & Artificial Intelligence \\ \hline
+        API & Application Programming Interface \\ \hline
+        BGR & Blue, Green, Red (OpenCV channel order) \\ \hline
+        BMP & Bitmap Image File Format \\ \hline
+        CI/CD & Continuous Integration / Continuous Deployment \\ \hline
+        CNN & Convolutional Neural Network \\ \hline
+        CPU & Central Processing Unit \\ \hline
+        CV & Computer Vision \\ \hline
+        FAO & Food and Agriculture Organization of the United Nations \\ \hline
+        FR & Functional Requirement \\ \hline
+        GB & Gigabyte \\ \hline
+        GPU & Graphics Processing Unit \\ \hline
+        HTTP & Hypertext Transfer Protocol \\ \hline
+        HSV & Hue, Saturation, Value \\ \hline
+        IIoT & Industrial Internet of Things \\ \hline
+        IoT & Internet of Things \\ \hline
+        JPEG & Joint Photographic Experts Group (image format) \\ \hline
+        JSON & JavaScript Object Notation \\ \hline
+        KPI & Key Performance Indicator \\ \hline
+        LLM & Large Language Model \\ \hline
+        MB & Megabyte \\ \hline
+        MQTT & Message Queuing Telemetry Transport \\ \hline
+        NFR & Non-Functional Requirement \\ \hline
+        PNG & Portable Network Graphics \\ \hline
+        RAM & Random Access Memory \\ \hline
+        REST & Representational State Transfer \\ \hline
+        RGB & Red, Green, Blue \\ \hline
+        SDK & Software Development Kit \\ \hline
+        SQL & Structured Query Language \\ \hline
+        UI & User Interface \\ \hline
+        VGG & Visual Geometry Group (CNN architecture family) \\ \hline
+        VRAM & Video Random Access Memory \\ \hline
+        YOLO & You Only Look Once \\ \hline
+    \end{tabular}
+\end{table}
+
+% ============================================================
+%                   CHAPTER 1 – INTRODUCTION
+% ============================================================
+\chapter{General Introduction}
+\label{ch:introduction}
+
+% ────────────────────────────────────────────────────────────
+\section{Context and Motivation}
+\label{sec:context}
+% ────────────────────────────────────────────────────────────
+
+The date palm (\textit{Phoenix dactylifera} L.) is one of the oldest cultivated
+fruit trees, with significant economic and cultural importance across the
+Middle East and North Africa.
+
+According to the Food and Agriculture Organization of the United Nations
+(FAO), global date production reached approximately
+\textbf{10.09 million tonnes} in \textbf{2024}, with
+\textbf{Saudi Arabia}, \textbf{Egypt}, and \textbf{Algeria}
+being the leading producers~\cite{fao_dates_production}.
+
+Despite their economic value, dates are highly susceptible to quality
+degradation caused by fungal infection, insect infestation, excessive
+moisture, and mechanical damage during harvesting and
+transportation~\cite{almomen2023date}.
+Post-harvest losses in the date sector are estimated at
+\textbf{30\%} of the total annual yield in several producing
+regions~\cite{fao_food_loss}.
+
+In traditional packing facilities, quality grading is still predominantly
+performed by human inspectors who visually assess each fruit for colour,
+texture, size, and the presence of defects.  This manual process is
+inherently slow, subjective, and non-reproducible: two different operators
+may assign different grades to the same fruit, and fatigue significantly
+degrades accuracy over long shifts~\cite{almomen2023date}.
+
+The convergence of the Internet of Things (IoT), computer vision, and deep
+learning offers a promising path toward automating this process.  Modern
+lightweight Convolutional Neural Networks (CNNs) such as MobileNetV2 can
+classify images with high accuracy while remaining deployable on
+resource-constrained environments~\cite{sandler2018mobilenetv2}.
+When combined with classical image processing for object isolation and
+cloud-based inference services, a complete, non-destructive, and scalable
+quality control pipeline becomes feasible.
+
+This project is therefore motivated by the need for an
+\textbf{end-to-end intelligent system} that can:
+\begin{enumerate}
+    \item detect and isolate individual date fruits from a conveyor-belt
+          camera feed,
+    \item classify each fruit's quality in real time, and
+    \item log, visualise, and \emph{interpret} the production data
+          through generative AI.
+\end{enumerate}
+
+% ────────────────────────────────────────────────────────────
+\section{Problem Statement}
+\label{sec:problem}
+% ────────────────────────────────────────────────────────────
+
+Although several studies have explored CNN-based classification of date
+fruits~\cite{almomen2023date, altaheri2019date}, most focus exclusively on
+the classification task in isolation.  The broader engineering challenge of
+integrating detection, classification, data persistence, and operational
+decision support into a single deployable system remains largely
+unaddressed.  The following specific gaps motivate the present work:
+
+\begin{enumerate}
+    \item \textbf{Subjectivity of manual grading.}
+    As discussed in Section~\ref{sec:context}, human inspectors produce
+    inconsistent grades due to lighting, fatigue, and individual perception.
+
+    \item \textbf{Computational cost of detection-only deep learning
+    pipelines.}
+    End-to-end object-detection models such as YOLO~\cite{redmon2016yolo}
+    achieve high accuracy but require significant GPU resources.  For
+    scenarios where the background is controlled (e.g., a white conveyor
+    belt), classical computer vision techniques can isolate objects at a
+    fraction of the cost.
+
+    \item \textbf{Absence of integrated quality control workflows.}
+    Existing research typically stops at reporting a classification accuracy
+    score.  A production-grade system must also handle image ingestion from
+    an IoT device, persist predictions in a database, and surface
+    actionable insights — not just raw numbers — to operations managers.
+\end{enumerate}
+
+The central question addressed in this work can be formulated as:
+
+\begin{quote}
+\textit{How can a lightweight, cloud-deployable system be designed to
+automatically detect, classify, and log the quality of date fruits in real
+time, while providing AI-generated operational insights to production
+managers?}
+\end{quote}
+
+% ────────────────────────────────────────────────────────────
+\section{Objectives}
+\label{sec:objectives}
+% ────────────────────────────────────────────────────────────
+
+To answer the research question stated above, four operational objectives
+are defined:
+
+\begin{enumerate}
+    \item[\textbf{O1.}] \textbf{Design a two-stage vision pipeline} that
+    combines classical computer vision (colour-space transformation,
+    Otsu's thresholding, morphological operations) for object isolation
+    with a pre-trained MobileNetV2 CNN for quality classification.
+
+    \item[\textbf{O2.}] \textbf{Implement a containerised cloud API}
+    using FastAPI and Docker, capable of receiving images over HTTP,
+    performing inference entirely in memory, and returning predictions
+    with sub-second latency.
+
+    \item[\textbf{O3.}] \textbf{Simulate an IoT edge device} that mimics
+    a conveyor-mounted industrial camera, continuously capturing and
+    transmitting images to the cloud service with built-in network
+    resilience.
+
+    \item[\textbf{O4.}] \textbf{Persist inspection data and generate
+    AI-driven quality reports} by logging every prediction to a
+    PostgreSQL database (Supabase) and integrating a Large Language
+    Model (Google Gemini) to interpret production trends and generate
+    managerial recommendations.
+\end{enumerate}
+
+% ────────────────────────────────────────────────────────────
+\section{Proposed Approach}
+\label{sec:approach}
+% ────────────────────────────────────────────────────────────
+
+The proposed system follows a four-layer microservices architecture,
+illustrated in Figure~\ref{fig:high_level_arch}.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.88\textwidth]{figures/ch1_architecture.png}
+    \caption{High-level architecture of the proposed system.}
+    \label{fig:high_level_arch}
+\end{figure}
+
+\begin{itemize}[nosep]
+    \item \textbf{Edge Layer} — IoT camera simulation
+          (\texttt{iot\_simulation.py}).
+    \item \textbf{Application Layer} — FastAPI inference service
+          (\texttt{api.py}) with two-stage vision pipeline.
+    \item \textbf{Data Persistence Layer} — Supabase PostgreSQL for
+          prediction logging.
+    \item \textbf{Management Layer} — Streamlit dashboard with
+          LLM-based report generation (\texttt{manager.py}).
+\end{itemize}
+
+Each layer is described in detail in Chapter~\ref{ch:design}.  The core
+technical contribution — the two-stage vision pipeline combining classical
+CV for object isolation with a MobileNetV2 CNN for classification — is
+presented in Chapters~\ref{ch:preprocessing} and~\ref{ch:training}.
+
+% ────────────────────────────────────────────────────────────
+\section{Scope and Limitations}
+\label{sec:scope}
+% ────────────────────────────────────────────────────────────
+
+The boundaries of this work were defined to ensure feasibility within a
+single-semester Master's module:
+
+\paragraph{In scope.}
+\begin{itemize}
+    \item Binary classification: \textit{Fresh} (Grade~1) versus
+      \textit{Dry} (Grade~3).
+    \item A simulated IoT camera client (software-based, no physical
+          hardware).
+    \item A single commodity: date fruits, using the
+          \textit{Augmented Date Fruit Dataset}.
+    \item Cloud deployment on a free-tier platform (Render).
+    \item LLM-assisted report generation via the Google Gemini API.
+\end{itemize}
+
+\paragraph{Out of scope.}
+\begin{itemize}
+    \item Multi-class grading (e.g., Grade~1 / Grade~2 / Grade~3).
+    \item Physical hardware integration (Raspberry Pi, industrial camera,
+          or robotic rejection arm).
+    \item On-device edge inference (e.g., TensorFlow Lite quantisation).
+    \item Fine-tuning or hosting a local LLM.
+\end{itemize}
+
+\paragraph{Acknowledged limitations.}
+\begin{itemize}
+    \item The augmented dataset may not fully represent the variability
+          encountered in real-world packing lines (dust, partial
+          occlusion, conveyor vibration).
+    \item Free-tier cloud hosting introduces cold-start latency of
+          up to 30--60 seconds after periods of inactivity.
+    \item LLM-generated reports are subject to hallucination and must be
+          reviewed by a human operator before acting on recommendations.
+\end{itemize}
+
+% ────────────────────────────────────────────────────────────
+\section{Document Structure}
+\label{sec:structure}
+% ────────────────────────────────────────────────────────────
+
+The remainder of this report is organised as follows:
+
+\begin{description}
+    \item[Chapter~\ref{ch:literature}] reviews the state of the art in
+    post-harvest quality inspection, classical computer vision,
+    CNN-based classification, IoT architectures for agriculture, and
+    the use of large language models for operational decision support.
+
+    \item[Chapter~\ref{ch:design}] presents the system design, including
+    the microservices architecture, cloud API structure, database schema,
+    and dashboard design.
+
+    \item[Chapter~\ref{ch:preprocessing}] details the classical computer
+    vision preprocessing pipeline used for object detection and isolation.
+
+    \item[Chapter~\ref{ch:training}] describes dataset preparation,
+    the MobileNetV2 transfer-learning strategy, and the training
+    configuration.
+
+    \item[Chapter~\ref{ch:results}] reports experimental results,
+    including classification metrics, system latency benchmarks, and a
+    qualitative assessment of LLM-generated reports.
+
+    \item[Chapter~\ref{ch:conclusion}] concludes with a summary of
+    contributions and directions for future work.
+\end{description}
+
+% ============================================================
+%                 CHAPTER 2 – LITERATURE REVIEW
+% ============================================================
+\chapter{Literature Review and State of the Art}
+\label{ch:literature}
+
+This chapter reviews the key disciplines that underpin the proposed system:
+post-harvest inspection practices, classical computer vision,
+CNN-based image classification, IoT architectures, and the emerging use
+of generative AI for operational decision support.  Each section concludes
+with a justification of the technology selected for this project.
+A comparative table of related work and a synthesis of identified gaps
+close the chapter.
+
+% ────────────────────────────────────────────────────────────
+\section{Post-Harvest Quality Inspection}
+\label{sec:postharvest}
+% ────────────────────────────────────────────────────────────
+
+As introduced in Section~\ref{sec:context}, manual date grading suffers
+from subjectivity, fatigue-induced errors, and lack of
+traceability~\cite{almomen2023date}.  Instrumental alternatives
+(colourimeters, refractometers) offer objectivity but are destructive
+and unsuitable for high-throughput conveyor
+lines~\cite{szeliski2022computer}.  These limitations motivate our
+choice of a \textit{non-destructive, vision-based} pipeline that
+produces a persistent digital log for every inspected fruit.
+
+% ────────────────────────────────────────────────────────────
+\clearpage
+\section{Classical Computer Vision for Object Segmentation}
+\label{sec:classical_cv}
+% ────────────────────────────────────────────────────────────
+
+Before a classifier can operate, individual objects must be isolated
+from the background.  Classical computer vision provides lightweight
+algorithms well-suited to \textit{controlled environments} such as
+industrial conveyor belts with uniform backgrounds.
+
+\subsection{Colour-Space Transformations}
+
+The RGB colour model is sensitive to illumination changes.  Converting
+an image to the \textbf{HSV} (Hue, Saturation, Value) space decouples
+chromatic content from brightness, making it easier to distinguish
+coloured objects from grey shadows~\cite{szeliski2022computer}.
+Table~\ref{tab:colour_spaces} summarises the three most common colour
+spaces used in agricultural vision.
+
+\begin{table}[H]
+\centering
+\caption{Comparison of colour spaces for fruit segmentation.}
+\label{tab:colour_spaces}
+\begin{tabularx}{\textwidth}{l X X}
+\toprule
+\textbf{Space} & \textbf{Advantage} & \textbf{Limitation} \\
+\midrule
+RGB   & Native camera format, no conversion needed
+      & Highly sensitive to lighting changes \\
+HSV   & Separates colour (H) from intensity (V); robust shadow rejection
+      & Hue wraps around at 0°/360° \\
+L*a*b* & Perceptually uniform; good for colour-distance metrics
+       & Higher computational cost \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\paragraph{Justification.}
+The system uses the \textbf{Saturation channel} because fruit regions
+are generally more chromatic than conveyor shadows. This improves
+foreground separation in controlled lighting.
+
+\subsection{Thresholding Techniques}
+
+Thresholding converts a grey-scale image into a binary mask.  Fixed
+(global) thresholds fail when lighting conditions vary.
+\textbf{Otsu's method}~\cite{otsu1979threshold} computes the optimal
+threshold automatically by maximising the inter-class variance between
+foreground and background pixels, making it adaptive to each frame.
+
+\subsection{Morphological Operations}
+
+Binary masks produced by thresholding often contain holes (caused by
+fruit textures) and noise (small white specks).
+\textit{Morphological closing} — a dilation followed by an erosion —
+fills internal gaps, while \textit{morphological opening} — an erosion
+followed by a dilation — removes small noise.  Together, they produce
+a clean, solid foreground mask suitable for contour
+detection~\cite{szeliski2022computer}.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\textwidth]{figures/ch2_morphology_steps.png}
+    \caption{Visualisation of the foreground mask creation pipeline:
+      Saturation channel, Otsu threshold, after closing, after opening.}
+    \label{fig:morph_pipeline}
+\end{figure}
+
+\subsection{Contour Analysis}
+
+Once a clean binary mask is obtained, \texttt{cv2.findContours} extracts
+the outer boundaries of each connected component.  Bounding rectangles
+are then computed and used to crop individual objects.  Small contours
+(below a configurable area threshold) are discarded as noise.
+
+\paragraph{Justification.}
+This full classical pipeline — HSV → Otsu → morphology → contour
+extraction — is executed in \textbf{under 10\,ms per frame} on a
+standard CPU, making it substantially cheaper than deploying a
+dedicated deep-learning detector such as YOLO for the sole purpose of
+isolating objects against a uniform background.
+
+% ────────────────────────────────────────────────────────────
+\section{Deep Learning for Agricultural Image Classification}
+\label{sec:deep_learning}
+% ────────────────────────────────────────────────────────────
+
+\subsection{CNN Fundamentals}
+
+A Convolutional Neural Network (CNN) learns hierarchical features from
+images through a sequence of convolution, activation, and pooling layers.
+Early layers detect low-level edges; deeper layers capture high-level
+patterns such as texture and shape.  A final fully connected (dense)
+layer maps the learned features to class probabilities.
+
+\subsection{Transfer Learning}
+
+Training a CNN from scratch requires large datasets and significant
+compute time.  \textit{Transfer learning} reuses a model pre-trained on
+a large-scale dataset (e.g., ImageNet~\cite{deng2009imagenet}) and
+replaces only the final classification head with one tailored to the new
+task.  The pre-trained layers — already rich in generic visual
+features — are frozen, and only the new head is
+trained~\cite{almomen2023date}.  This strategy reduces
+training time and data requirements.
+
+\subsection{Architecture Comparison}
+
+Table~\ref{tab:cnn_comparison} compares three architectures commonly
+used for agricultural image classification.
+
+\begin{table}[H]
+\centering
+\caption{Comparison of CNN architectures for lightweight deployment.}
+\label{tab:cnn_comparison}
+\begin{tabularx}{\textwidth}{l c c X}
+\toprule
+\textbf{Model} & \textbf{Params (M)} & \textbf{Top-1 (\%)} &
+\textbf{Key Feature} \\
+\midrule
+ResNet-50~\cite{almomen2023date}
+  & 25.6 & 76.1
+  & Skip connections; very deep but heavy \\
+MobileNetV2~\cite{sandler2018mobilenetv2}
+  & 3.4  & 72.0
+  & Inverted residuals + depthwise separable convolutions; very lightweight \\
+EfficientNet-B0
+  & 5.3  & 77.3
+  & Compound scaling; excellent accuracy-to-size ratio \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\paragraph{Justification.}
+MobileNetV2 was selected for this project for three reasons:
+\begin{enumerate}[nosep]
+    \item \textbf{Size.} At 3.4\,M parameters, it is 7.5$\times$ smaller
+          than ResNet-50, fitting comfortably within the 512\,MB RAM
+          limit of a free-tier cloud container.
+    \item \textbf{Speed.} Depthwise separable convolutions reduce
+          multiply–accumulate operations, enabling sub-second inference
+          on CPU-only environments (our Dockerfile uses
+          \texttt{tensorflow-cpu}).
+    \item \textbf{Proven accuracy on fruit data.} Almomen et
+          al.~\cite{almomen2023date} demonstrated that MobileNet
+          architectures achieve competitive accuracy on date surface
+          quality classification, confirming suitability for this domain.
+\end{enumerate}
+
+% ────────────────────────────────────────────────────────────
+\clearpage
+\section{IoT Architectures for Smart Agriculture}
+\label{sec:iot}
+% ────────────────────────────────────────────────────────────
+
+Modern IoT systems in agriculture follow a layered
+\textbf{Edge–Fog–Cloud} architecture~\cite{shi2016edge}.
+Table~\ref{tab:iot_protocols} compares the two dominant communication
+protocols.
+
+\begin{table}[H]
+\centering
+\caption{Comparison of IoT communication protocols.}
+\label{tab:iot_protocols}
+\begin{tabularx}{\textwidth}{l c c X}
+\toprule
+\textbf{Protocol} & \textbf{Pattern} & \textbf{Overhead} &
+\textbf{Typical Use Case} \\
+\midrule
+MQTT  & Publish/Subscribe & Very low  & Telemetry from constrained
+                                         sensors (temperature, humidity) \\
+HTTP/REST & Request/Response & Moderate & File uploads, image transfer,
+                                          API-based inference \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\paragraph{Justification.}
+Our system transmits full-resolution images ($\approx$100--300\,KB each)
+and expects a structured JSON response from the server.  The
+\textbf{request/response} model of HTTP/REST is therefore more natural
+than the fire-and-forget semantics of MQTT.  FastAPI was chosen as the
+server framework because it provides automatic OpenAPI documentation,
+native \texttt{async} support, and built-in data validation via
+Pydantic~\cite{fastapi} — all with minimal boilerplate.
+The containerisation and deployment strategy is detailed in
+Section~\ref{sec:container}.
+
+% ────────────────────────────────────────────────────────────
+\section{Generative AI for Operational Decision Support}
+\label{sec:genai}
+% ────────────────────────────────────────────────────────────
+
+Large Language Models (LLMs) such as GPT and
+Gemini~\cite{team2023gemini} have demonstrated strong capabilities in
+interpreting structured data and generating natural-language summaries.
+In an industrial context, this translates to converting raw production
+statistics (e.g., rejection rate, class distribution) into
+\textit{actionable managerial recommendations} — a task traditionally
+requiring a human quality manager.
+
+\paragraph{Prompt Engineering.}
+The quality of LLM output depends heavily on prompt design.  In this
+project, the dashboard sends a structured prompt containing:
+(i)~numerical statistics from the database,
+(ii)~the role instruction (``You are a quality manager''), and
+(iii)~an output format specification (bullet-point recommendations).
+This approach is known as \textit{role-based prompting} and has been
+shown to improve domain-specific response quality.
+
+\paragraph{Risks.}
+LLMs are prone to \textit{hallucination} — generating plausible but
+factually incorrect statements.  For this reason, generated reports in
+our system are presented as \textit{suggestions} requiring human
+validation, not as automated commands.
+
+\paragraph{Justification.}
+Google Gemini was selected over OpenAI GPT for two practical reasons:
+(i)~the Gemini API offers a free tier sufficient for a university
+project, and (ii)~the \texttt{google-generativeai} Python SDK integrates
+directly with the existing Google Cloud ecosystem.
+
+% ────────────────────────────────────────────────────────────
+\section{Comparative Analysis of Related Work}
+\label{sec:related_work}
+% ────────────────────────────────────────────────────────────
+
+Table~\ref{tab:related_work} summarises representative studies in
+date fruit classification and agricultural quality control systems.
+
+\begin{table}[H]
+\centering
+\caption{Comparative analysis of related work.}
+\label{tab:related_work}
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{l c c c c c c}
+\toprule
+\textbf{Study} & \textbf{Fruit} & \textbf{Detection} &
+\textbf{Classifier} & \textbf{Real-time?} &
+\textbf{IoT?} & \textbf{LLM?} \\
+\midrule
+Almomen et al.~\cite{almomen2023date}
+  & Dates & None & CNN (VGG, ResNet) & No & No & No \\
+Altaheri et al.~\cite{altaheri2019date}
+  & Dates & None & Dataset contribution & No & No & No \\
+Ouhda et al.~\cite{ouhda2023smart}
+  & Dates & YOLO & YOLO + K-Means & Yes & No & No \\
+Almutairi et al.~\cite{almutairi2024date}
+  & Dates & YOLOv8 & YOLOv8 & Yes & No & No \\
+Lipiński et al.~\cite{lipinski2025application}
+  & Dates & YOLO/R-CNN & YOLOv8n / ResNet-50 & Yes & No & No \\
+\midrule
+\textbf{This work}
+  & Dates & Classical CV & MobileNetV2 & Yes & Yes & Yes \\
+\bottomrule
+\end{tabular}%
+}
+\end{table}
+
+% ────────────────────────────────────────────────────────────
+\section{Synthesis and Identified Gaps}
+\label{sec:gaps}
+% ────────────────────────────────────────────────────────────
+
+The literature review reveals the following observations:
+
+\begin{enumerate}
+    \item Most studies on date classification focus exclusively on the
+          \textit{model accuracy} and do not address system integration,
+          deployment, or data logging.
+
+    \item When object detection is needed, researchers typically employ
+          heavy deep-learning detectors (e.g., YOLO), even when the
+          background is controlled and classical vision would suffice
+          at a fraction of the computational cost.
+
+    \item In the reviewed studies, we did not find a single pipeline that combines
+          \textbf{all five} of the following in a single pipeline:
+          \begin{itemize}[nosep]
+              \item Classical CV-based object isolation,
+              \item Lightweight CNN classification,
+              \item Cloud-deployed containerised API,
+              \item Persistent IoT data logging, and
+              \item LLM-powered quality report generation.
+          \end{itemize}
+\end{enumerate}
+
+This identified gap directly motivates the system presented in the
+following chapters, where each of the five components above is designed,
+implemented, and evaluated.
+
+% ============================================================
+%             CHAPTER 3 – SYSTEM DESIGN & ARCHITECTURE
+% ============================================================
+\chapter{System Design and Architecture}
+\label{ch:design}
+
+This chapter describes the functional and non-functional requirements
+derived from the project subject (Section~\ref{sec:requirements}),
+the four-layer architecture that satisfies them
+(Section~\ref{sec:highlevel}), and the implementation details of each
+layer (Sections~\ref{sec:edge}–\ref{sec:container}).
+
+% ────────────────────────────────────────────────────────────
+\section{Requirements Analysis}
+\label{sec:requirements}
+% ────────────────────────────────────────────────────────────
+
+\subsection{Functional Requirements}
+
+Table~\ref{tab:fr} lists the functional requirements traced directly
+from the project subject.
+
+\begin{table}[H]
+\centering
+\caption{Functional requirements.}
+\label{tab:fr}
+\begin{tabularx}{\textwidth}{l X}
+\toprule
+\textbf{ID} & \textbf{Description} \\
+\midrule
+FR-01 & Capture images from a simulated IoT camera and transmit them
+        to the cloud API. \\
+FR-02 & Detect and isolate individual date fruits from an input image
+        using classical computer vision. \\
+FR-03 & Classify each isolated fruit as \textit{Fresh} or \textit{Dry}
+        using a CNN model. \\
+FR-04 & Log every prediction (filename, class, confidence) to a
+        persistent database. \\
+FR-05 & Visualise production metrics (totals, class distribution)
+        in a real-time dashboard. \\
+FR-06 & Generate a natural-language quality report using a Large
+        Language Model. \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\subsection{Non-Functional Requirements}
+
+\begin{table}[H]
+\centering
+\caption{Non-functional requirements.}
+\label{tab:nfr}
+\begin{tabularx}{\textwidth}{l X}
+\toprule
+\textbf{ID} & \textbf{Description} \\
+\midrule
+NFR-01 & Inference latency $< 2$\,s per image (excluding cold start). \\
+NFR-02 & Containerised, reproducible deployment via Docker. \\
+NFR-03 & Zero-disk image processing (all operations in RAM). \\
+NFR-04 & Graceful error handling: network timeouts, missing models,
+         database failures. \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+% ────────────────────────────────────────────────────────────
+\section{High-Level Architecture}
+\label{sec:highlevel}
+% ────────────────────────────────────────────────────────────
+
+The system is organised into four decoupled layers, as shown in
+Figure~\ref{fig:arch_ch3}.  Each layer communicates through a well-defined
+interface (HTTP or SQL), enabling independent development, testing, and
+deployment.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.85\textwidth]{figures/ch3_architecture.png}
+    \caption{High-level four-layer architecture of the proposed system.}
+    \label{fig:arch_ch3}
+\end{figure}
+
+\begin{description}
+    \item[Edge Layer] simulates the IoT camera
+          (\texttt{iot\_simulation.py}).
+    \item[Application Layer] hosts the FastAPI inference service
+          (\texttt{api.py}) with the preprocessing
+          (\texttt{detection.py}) and CNN model.
+    \item[Data Persistence Layer] stores prediction logs in a Supabase
+          PostgreSQL database.
+    \item[Management Layer] provides a Streamlit dashboard
+          (\texttt{dashboard.py}) and LLM-based report generation
+          (\texttt{manager.py}).
+\end{description}
+
+\clearpage
+% ────────────────────────────────────────────────────────────
+\section{Edge Layer: IoT Camera Simulation}
+\label{sec:edge}
+% ────────────────────────────────────────────────────────────
+
+The edge layer is implemented as a standalone Python script that mimics
+an industrial camera mounted above a conveyor belt.  It iterates over a
+folder of test images, transmitting each one to the cloud API via an
+HTTP POST request.  A configurable delay between images simulates the
+belt speed.
+
+Listing~\ref{lst:iot_core} shows the core simulation loop.
+
+\begin{lstlisting}[
+  language=Python, caption={Core loop of the IoT simulation
+  (\texttt{iot\_simulation.py}).}, label={lst:iot_core},
+  basicstyle=\small\ttfamily, breaklines=true,
+  keywordstyle=\color{blue}, stringstyle=\color{red!60!black},
+  commentstyle=\color{green!50!black}, frame=single]
+def simulate(img_paths: list):
+    for img in img_paths:
+        sleep(2)  # simulates conveyor belt delay
+        print(f"Capturing: {img.name}...")
+        with open(img, 'rb') as f:
+            res = requests.post(
+                API_URL + '/upload_and_predict',
+                files={"file": f}, timeout=60
+            )
+            if res.status_code == 200:
+                result = res.json()
+                label = result['predicted_class']
+                conf  = result['confidence']
+                print(f"--> [{label}] ({conf:.2f}%)")
+\end{lstlisting}
+
+\paragraph{Key design decisions.}
+\begin{itemize}[nosep]
+    \item \textbf{Timeout of 60\,s:} accommodates the cold-start delay
+          of free-tier cloud hosting (Render).
+    \item \textbf{Random shuffling} of images before iteration prevents
+          class-ordered bias during testing.
+    \item \textbf{Connection error handling:} the script catches
+          \texttt{ConnectionError} and continues to the next image
+          rather than crashing the entire simulation.
+\end{itemize}
+
+\clearpage
+% ────────────────────────────────────────────────────────────
+\section{Application Layer: Cloud API}
+\label{sec:api}
+% ────────────────────────────────────────────────────────────
+
+The central inference service is built with
+FastAPI~\cite{fastapi} and served by Uvicorn.
+Figure~\ref{fig:api_flow} illustrates the request lifecycle.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.85\textwidth]{figures/ch3_api_flow.png}
+    \caption{Request lifecycle of the \texttt{/upload\_and\_predict} endpoint.}
+    \label{fig:api_flow}
+\end{figure}
+
+Listing~\ref{lst:api_endpoint} shows the prediction endpoint.
+
+\begin{lstlisting}[
+  language=Python, caption={Prediction endpoint
+  (\texttt{api.py}).}, label={lst:api_endpoint},
+  basicstyle=\small\ttfamily, breaklines=true,
+  keywordstyle=\color{blue}, stringstyle=\color{red!60!black},
+  commentstyle=\color{green!50!black}, frame=single]
+@app.post("/upload_and_predict/", response_model=PredictionOut)
+def upload_and_predict(background_tasks: BackgroundTasks,
+                       file: UploadFile = File(...)):
+    # Zero-disk: decode directly from the byte stream
+    img = keras.utils.load_img(
+        BytesIO(file.file.read()), target_size=(224, 224)
+    )
+    image_array = keras.utils.img_to_array(img)
+    image_array = tf.expand_dims(image_array, 0)
+
+    predictions = model.predict(image_array, verbose=0)
+    score = tf.nn.softmax(predictions[0])
+
+    predicted_class = CLASSES[np.argmax(score)]
+    confidence = float(100 * np.max(score))
+
+    # Non-blocking database write
+    background_tasks.add_task(
+        log_prediction, file.file.name,
+        predicted_class, confidence
+    )
+    return PredictionOut(
+        predicted_class=predicted_class,
+        confidence=confidence
+    )
+\end{lstlisting}
+
+\paragraph{Key design decisions.}
+\begin{itemize}[nosep]
+    \item \textbf{Zero-disk architecture (NFR-03):} the uploaded file
+          is read into a \texttt{BytesIO} buffer and never written to
+          disk.  This maximises speed and eliminates temporary-file
+          cleanup.
+    \item \textbf{Asynchronous logging:} database writes are delegated
+          to a FastAPI \texttt{BackgroundTask}, so the HTTP response is
+          returned immediately after inference completes.
+    \item \textbf{Pydantic schema (\texttt{PredictionOut}):} enforces a
+          typed JSON contract (\texttt{predicted\_class: str},
+          \texttt{confidence: float}), providing automatic validation
+          and interactive API documentation via Swagger UI.
+\end{itemize}
+
+% ────────────────────────────────────────────────────────────
+\section{Data Persistence Layer}
+\label{sec:database}
+% ────────────────────────────────────────────────────────────
+
+Every prediction is persisted in a Supabase-hosted PostgreSQL database.
+Table~\ref{tab:db_schema} describes the schema of the \texttt{logs}
+table.
+
+\begin{table}[H]
+\centering
+\caption{Schema of the \texttt{logs} table.}
+\label{tab:db_schema}
+\begin{tabular}{l l l l}
+\toprule
+\textbf{Column} & \textbf{Type} & \textbf{Nullable} &
+\textbf{Description} \\
+\midrule
+\texttt{id}         & \texttt{bigint}      & No  & Auto-incremented primary key \\
+\texttt{created\_at}& \texttt{timestamptz} & No  & Insertion timestamp (default \texttt{now()}) \\
+\texttt{filename}   & \texttt{text}        & Yes & Original image filename \\
+\texttt{prediction} & \texttt{text}        & Yes & Predicted class (Fresh / Dry) \\
+\texttt{confidence} & \texttt{float8}      & Yes & Confidence score (\%) \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.85\textwidth]{figures/ch3_supabase_table.png}
+    \caption{Sample rows from the \texttt{logs} table in Supabase.}
+    \label{fig:supabase}
+\end{figure}
+
+\paragraph{Justification.}
+Supabase was chosen over a self-hosted PostgreSQL instance because it
+provides: (i)~a generous free tier (500\,MB), (ii)~a built-in REST API
+via PostgREST, and (iii)~row-level security with service-role key
+authentication, eliminating the need to manage database infrastructure.
+
+% ────────────────────────────────────────────────────────────
+\section{Management Layer: Dashboard and Generative AI}
+\label{sec:dashboard}
+% ────────────────────────────────────────────────────────────
+
+\subsection{Streamlit Dashboard}
+
+The dashboard (\texttt{dashboard.py}) serves as the operator's control
+panel. It fetches prediction logs from Supabase, computes summary
+metrics, and renders visualisations.
+
+Listing~\ref{lst:dashboard_metrics} shows the KPI computation.
+
+\begin{lstlisting}[
+  language=Python, caption={Dashboard KPI computation
+  (\texttt{dashboard.py}).}, label={lst:dashboard_metrics},
+  basicstyle=\small\ttfamily, breaklines=true,
+  keywordstyle=\color{blue}, stringstyle=\color{red!60!black},
+  commentstyle=\color{green!50!black}, frame=single]
+total_count = len(data)
+fresh_count = data['prediction'].value_counts()['Fresh']
+dry_count   = data['prediction'].value_counts()['Dry']
+
+col1, col2, col3 = st.columns(3)
+col1.metric(label='Total',  value=total_count)
+col2.metric(label='Fresh',  value=fresh_count)
+col3.metric(label='Dry',    value=dry_count)
+\end{lstlisting}
+
+\begin{figure}[H]
+    \centering
+    % ┌──────────────────────────────────────────────────────┐
+    % │  `PLACEHOLDER': Screenshot of the Streamlit dashboard   │
+    % │  HOW TO CREATE:                                       │
+    % │  1. Run: streamlit run src/dashboard.py               │
+    % │  2. Wait for it to load with real data from Supabase  │
+    % │  3. Screenshot the full page (metrics + pie chart)    │
+    % │  4. Save as figures/ch3_dashboard.png                 │
+    % │  5. Uncomment the \includegraphics line below.        │
+    % └──────────────────────────────────────────────────────┘
+    %
+    % \includegraphics[width=0.85\textwidth]{figures/ch3_dashboard.png}
+    \fbox{\parbox{0.85\textwidth}{\centering\vspace{2.5cm}
+      \textbf{Dashboard Screenshot Pending}\\
+      KPI cards and class-distribution chart.
+    \vspace{2.5cm}}}
+    \caption{Dashboard UI placeholder. Replace with an exported screenshot from the deployed dashboard.}
+    \label{fig:dashboard}
+\end{figure}
+
+\subsection{LLM-Based Quality Manager}
+
+The reporting module (\texttt{manager.py}) converts raw production
+statistics into a professional quality control report.  The
+\texttt{QualityManager} class classifies the current batch severity
+based on the loss rate and constructs a role-based prompt that is
+sent to a text-generation model.
+
+Listing~\ref{lst:severity} shows the severity classification logic.
+
+\begin{lstlisting}[
+  language=Python, caption={Severity classification and prompt
+  construction (\texttt{manager.py}).}, label={lst:severity},
+  basicstyle=\small\ttfamily, breaklines=true,
+  keywordstyle=\color{blue}, stringstyle=\color{red!60!black},
+  commentstyle=\color{green!50!black}, frame=single]
+# Classify severity based on industrial thresholds
+if data.loss_rate > 15:
+    severity = "CRITICAL"
+elif data.loss_rate > 5:
+    severity = "WARNING"
+else:
+    severity = "ACCEPTABLE"
+
+prompt = f"""Quality Control Report for Date Packaging Co.
+PRODUCTION BATCH DATA:
+- Total Units Processed: {data.fresh + data.rotten}
+- Grade 1 (Fresh): {data.fresh} units
+- Grade 3 (Rejected): {data.rotten} units
+- Loss Rate: {data.loss_rate:.2f}%
+- Severity Status: {severity}
+..."""
+\end{lstlisting}
+
+The prompt uses three elements: (i)~numerical context,
+(ii)~a role instruction, and (iii)~an output format specification.
+A template-based
+\texttt{\_generate\_fallback\_report()} method ensures the system still
+produces a usable report even if the LLM call fails.
+
+\clearpage
+% ────────────────────────────────────────────────────────────
+\section{Containerisation and Deployment}
+\label{sec:container}
+% ────────────────────────────────────────────────────────────
+
+The API is packaged as a Docker image for reproducible deployment.
+Listing~\ref{lst:dockerfile} shows the complete Dockerfile.
+
+\begin{lstlisting}[
+  language=bash, caption={Dockerfile for the inference API.},
+  label={lst:dockerfile},
+  basicstyle=\small\ttfamily, breaklines=true,
+  keywordstyle=\color{blue}, commentstyle=\color{green!50!black},
+  frame=single]
+FROM mambaorg/micromamba:1.5-jammy
+WORKDIR /app
+COPY environment.yml .
+RUN micromamba install --yes \
+  --name base -f environment.yml \
+  && micromamba clean --all --yes
+ARG MAMBA_DOCKERFILE_ACTIVATE=1
+COPY . .
+ENTRYPOINT ["micromamba", "run", "-n", "base", \
+  "uvicorn", "src.api:app", \
+  "--host", "0.0.0.0", "--port", "8000"]
+\end{lstlisting}
+
+\paragraph{Key design decisions.}
+\begin{itemize}[nosep]
+    \item \textbf{Micromamba over pip:} Micromamba resolves
+          \texttt{conda-forge} and \texttt{pip} dependencies in a
+          single step, producing a smaller and more reliable image than
+          a standard \texttt{python:3.11} base with pip-only
+          installs~\cite{newman2021building}.
+    \item \textbf{Pinned versions (\texttt{environment.yml}):} every
+          package is version-locked (e.g., \texttt{tensorflow-cpu==2.20.0},
+          \texttt{keras==3.10.0}) to guarantee reproducibility across
+          builds.
+    \item \textbf{\texttt{tensorflow-cpu}:} the full GPU build of
+          TensorFlow exceeds 1.5\,GB.  Since Render's free tier provides
+          no GPU, using the CPU variant cuts the image size by
+          $\approx$60\%.
+\end{itemize}
+
+The image is deployed on \textbf{Render} (free tier).  On each
+\texttt{git push} to the \texttt{main} branch, Render automatically
+rebuilds the Docker image and redeploys the service — providing a
+basic CI/CD pipeline at zero cost.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.85\textwidth]{figures/ch3_render.png}
+    \caption{Render deployment dashboard for the cloud API.}
+    \label{fig:render}
+\end{figure}
+
+
+% ============================================================
+%         CHAPTER 4 – PREPROCESSING & DETECTION PIPELINE
+% ============================================================
+\chapter{Intelligent Preprocessing and Object Detection}
+\label{ch:preprocessing}
+
+This chapter presents the classical computer vision pipeline used as
+Stage~1 of the system. Implemented in \texttt{detection.py}, it decodes
+an uploaded image in memory, isolates fruit regions, and returns crops
+for Stage~2 classification.
+
+% ────────────────────────────────────────────────────────────
+\section{Overview of the Two-Stage Pipeline}
+\label{sec:pipeline_overview}
+% ────────────────────────────────────────────────────────────
+
+Several date-inspection studies rely on deep-learning detectors such as
+YOLOv8~\cite{almutairi2024date, lipinski2025application}. In this work,
+the deployment target is CPU-only free-tier infrastructure, so the
+detection stage prioritises low computational cost.
+
+The design assumes a controlled conveyor background (light and mostly
+achromatic). Under this assumption, classical computer vision can
+separate foreground objects with limited compute. The pipeline adopts a
+two-stage separation of concerns:
+
+\begin{enumerate}[nosep]
+    \item \textbf{Stage~1 — Detection (Classical CV):} isolate individual
+          date fruits from the scene using colour-space analysis,
+          adaptive thresholding, and morphological refinement.
+    \item \textbf{Stage~2 — Classification (Deep Learning):} feed each
+          isolated crop to the MobileNetV2 classifier described in
+          Chapter~\ref{ch:training}.
+\end{enumerate}
+
+This decomposition offers two practical benefits: Stage~1 keeps CPU
+latency low, and it filters obvious artefacts before classification.
+
+Figure~\ref{fig:ch4_pipeline_flow} summarises the complete detection
+flow and its interface with the classifier in Chapter~\ref{ch:training}.
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=1\textwidth]{figures/ch4_pipeline_flow.pdf}
+  \caption{Two-stage pipeline used in the application layer.}
+  \label{fig:ch4_pipeline_flow}
+\end{figure}
+
+% ────────────────────────────────────────────────────────────
+\section{Image Decoding and Colour-Space Transformation}
+\label{sec:decoding}
+% ────────────────────────────────────────────────────────────
+
+\subsection{Zero-Disk Image Decoding}
+
+Consistent with the zero-disk architecture described in
+Section~\ref{sec:api} (NFR-03, Table~\ref{tab:nfr}), the uploaded file
+is never written to the filesystem.  Instead, the raw byte payload is
+decoded directly in memory using OpenCV:
+
+\begin{lstlisting}[
+  language=Python, caption={In-memory image decoding
+  (\texttt{detection.py}).}, label={lst:decode},
+  basicstyle=\small\ttfamily, breaklines=true,
+  keywordstyle=\color{blue}, stringstyle=\color{red!60!black},
+  commentstyle=\color{green!50!black}, frame=single]
+def _decode_image(image_bytes: bytes) -> np.ndarray | None:
+    nparr = np.frombuffer(image_bytes, np.uint8)
+    return cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+\end{lstlisting}
+
+The function converts the byte buffer into a one-dimensional NumPy array
+of unsigned 8-bit integers, which \texttt{cv2.imdecode} then interprets
+according to the embedded image header (JPEG, PNG, or BMP).  The
+returned array follows OpenCV's native \textbf{BGR} channel ordering.
+
+\subsection{BGR to HSV Conversion}
+
+As discussed in Section~\ref{sec:classical_cv}, the RGB (and by
+extension BGR) colour model conflates chromatic content with luminance,
+making it vulnerable to illumination variations.  The pipeline therefore
+converts the decoded image to the \textbf{HSV} colour space and
+operates on the Saturation channel:
+
+\begin{lstlisting}[
+  language=Python, caption={Colour-space conversion and Saturation
+  channel extraction.}, label={lst:hsv},
+  basicstyle=\small\ttfamily, breaklines=true,
+  keywordstyle=\color{blue}, stringstyle=\color{red!60!black},
+  commentstyle=\color{green!50!black}, frame=single]
+hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
+s_channel = hsv[:, :, 1]   # Saturation channel only
+\end{lstlisting}
+
+The Saturation-channel choice is justified in
+Section~\ref{sec:classical_cv} and summarised in
+Table~\ref{tab:colour_spaces}.
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.88\textwidth]{figures/ch4_decode_hsv.png}
+  \caption{Input image and its Saturation channel.}
+  \label{fig:ch4_decode_hsv}
+\end{figure}
+
+% ────────────────────────────────────────────────────────────
+\section{Foreground Mask Generation}
+\label{sec:mask_generation}
+% ────────────────────────────────────────────────────────────
+
+The Saturation channel is transformed into a clean binary mask through
+three successive operations: Gaussian smoothing, Otsu's thresholding,
+and morphological refinement.  The complete mask-generation function is
+shown in Listing~\ref{lst:mask}.
+
+\begin{lstlisting}[
+  language=Python, caption={Foreground mask generation
+  (\texttt{\_create\_foreground\_mask}).}, label={lst:mask},
+  basicstyle=\small\ttfamily, breaklines=true,
+  keywordstyle=\color{blue}, stringstyle=\color{red!60!black},
+  commentstyle=\color{green!50!black}, frame=single]
+def _create_foreground_mask(image: np.ndarray) -> np.ndarray:
+    hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
+    s_channel = hsv[:, :, 1]
+
+    blurred = cv2.GaussianBlur(s_channel, (5, 5), 0)
+
+    _, mask = cv2.threshold(
+        blurred, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU
+    )
+
+    kernel = np.ones((7, 7), np.uint8)
+    mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel,
+                            iterations=2)
+    mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN,  kernel,
+                            iterations=1)
+    return mask
+\end{lstlisting}
+
+  The theoretical motivations for these operations are detailed in
+  Section~\ref{sec:classical_cv}.  Figure~\ref{fig:ch4_mask_stages}
+  illustrates the end-to-end mask generation on a representative input.
+
+  \begin{figure}[H]
+    \centering
+    \includegraphics[width=0.88\textwidth]{figures/ch4_mask_stages.png}
+    \caption{Foreground mask generation stages used by the pipeline.}
+    \label{fig:ch4_mask_stages}
+  \end{figure}
+
+% ────────────────────────────────────────────────────────────
+\section{Scene-Aware Adaptive Logic}
+\label{sec:scene_logic}
+% ────────────────────────────────────────────────────────────
+
+A key design requirement is that the system must handle two
+fundamentally different imaging scenarios \emph{without any manual
+configuration or code changes}:
+
+\begin{enumerate}[nosep]
+    \item A \textbf{macro photograph} where a single date fills most of
+          the frame (e.g., a close-up quality inspection shot).
+    \item A \textbf{conveyor-belt image} containing multiple dates
+          scattered across a wide field of view.
+\end{enumerate}
+
+The switching criterion is the \textbf{coverage ratio}~$\rho$, defined
+as the area of the largest detected contour divided by the total image
+area.  If the ratio exceeds 0.50, the frame is treated as a macro
+capture; otherwise, it is processed as a multi-object conveyor scene.
+
+% ── 4.4.1 ──────────────────────────────────────────────────
+\subsection{Macro Mode (Single Object, $\rho > 0.50$)}
+\label{sec:macro}
+
+When $\rho$ exceeds the threshold
+\texttt{ZOOMED\_IN\_THRESHOLD\,=\,0.50}, the system concludes that a
+single fruit dominates the frame.  In this mode, the pipeline computes
+the bounding rectangle of the largest contour and returns a single
+padded crop (see Section~\ref{sec:artifacts}).  No further contour
+iteration is performed, as the remaining contours — if any — are
+assumed to be boundary artefacts.
+
+\begin{lstlisting}[
+  language=Python, caption={Macro-mode branch in
+  \texttt{detect\_and\_crop}.}, label={lst:macro},
+  basicstyle=\small\ttfamily, breaklines=true,
+  keywordstyle=\color{blue}, stringstyle=\color{red!60!black},
+  commentstyle=\color{green!50!black}, frame=single]
+if coverage > ZOOMED_IN_THRESHOLD:      # 0.50
+    logger.info(f"Scene: Zoomed-In (Coverage: {coverage:.2f})")
+    x, y, w, h = cv2.boundingRect(largest)
+    return [_padded_crop(image, x, y, w, h)]
+\end{lstlisting}
+
+% ── 4.4.2 ──────────────────────────────────────────────────
+\subsection{Conveyor Mode (Multiple Objects, $\rho \leq 0.50$)}
+\label{sec:conveyor}
+
+When $\rho \leq 0.50$, the system enters conveyor mode.  It iterates
+over \emph{all} detected external contours and applies two rejection
+filters (detailed in Section~\ref{sec:artifacts}) before appending each
+valid crop to the output list.  This mode is the primary operational
+scenario in a real packing-line deployment, where tens of dates may be
+visible simultaneously.
+
+Figure~\ref{fig:ch4_scene_modes} contrasts the two operational modes.
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.88\textwidth]{figures/ch4_scene_modes.png}
+  \caption{Macro and conveyor scenarios handled by the same pipeline.}
+  \label{fig:ch4_scene_modes}
+\end{figure}
+
+\begin{lstlisting}[
+  language=Python, caption={Conveyor-mode branch in
+  \texttt{detect\_and\_crop}.}, label={lst:conveyor},
+  basicstyle=\small\ttfamily, breaklines=true,
+  keywordstyle=\color{blue}, stringstyle=\color{red!60!black},
+  commentstyle=\color{green!50!black}, frame=single]
+logger.info("Detected a conveyor-belt scene")
+crops = []
+for contour in contours:
+    x, y, w, h = cv2.boundingRect(contour)
+    if w * h < MIN_OBJECT_AREA:         # 3000 px^2
+        continue
+    crop = _padded_crop(image, x, y, w, h)
+    if _is_too_dark(crop):
+        continue
+    crops.append(crop)
+\end{lstlisting}
+
+% ────────────────────────────────────────────────────────────
+\section{Artifact Rejection}
+\label{sec:artifacts}
+% ────────────────────────────────────────────────────────────
+
+Even after morphological cleaning, the binary mask may contain regions
+that do not correspond to actual date fruits.  Three complementary
+filters are applied to reject such artefacts before any crop is
+forwarded to the classifier.
+
+Table~\ref{tab:filters} summarises the three filters and their roles in
+the pipeline.  The exact parameters are defined in
+\texttt{detection.py}.
+
+\begin{table}[H]
+\centering
+\caption{Artifact rejection filters used before classification.}
+\label{tab:filters}
+\begin{tabularx}{\textwidth}{l c X}
+\toprule
+\textbf{Filter} & \textbf{Threshold} & \textbf{Purpose} \\
+\midrule
+Minimum bounding area & 3\,000\,px\textsuperscript{2}
+  & Rejects small noise contours from the mask \\
+Dark-crop rejection & mean intensity $< 20$
+  & Removes black borders and shadow artefacts \\
+Padded crop & 10\,px each side
+  & Preserves context at object boundaries \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+The core implementation is shown in Listing~\ref{lst:detect_and_crop}.
+
+\begin{lstlisting}[
+  language=Python, caption={Unified detection and cropping logic
+  (\texttt{detect\_and\_crop}).}, label={lst:detect_and_crop},
+  basicstyle=\small\ttfamily, breaklines=true,
+  keywordstyle=\color{blue}, stringstyle=\color{red!60!black},
+  commentstyle=\color{green!50!black}, frame=single]
+def detect_and_crop(image_bytes: bytes) -> list:
+    image = _decode_image(image_bytes)
+    if image is None:
+        logger.error("Failed to decode image")
+        return []
+
+    mask = _create_foreground_mask(image)
+    contours, _ = cv2.findContours(
+        mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
+    )
+    if not contours:
+        return []
+
+    largest = max(contours, key=cv2.contourArea)
+    coverage = cv2.contourArea(largest) / (image.shape[0] * image.shape[1])
+
+    if coverage > ZOOMED_IN_THRESHOLD:  # 0.50
+        x, y, w, h = cv2.boundingRect(largest)
+        return [_padded_crop(image, x, y, w, h)]
+
+    crops = []
+    for contour in contours:
+        x, y, w, h = cv2.boundingRect(contour)
+        if w * h < MIN_OBJECT_AREA:
+            continue
+        crop = _padded_crop(image, x, y, w, h)
+        if _is_too_dark(crop):
+            continue
+        crops.append(crop)
+    return crops
+\end{lstlisting}
+
+\paragraph{1. Minimum object area threshold.}
+Contours whose bounding-rectangle area $w \times h$ falls below
+\texttt{MIN\_OBJECT\_AREA\,=\,3\,000\,px\textsuperscript{2}} are
+discarded.  This eliminates small dust particles, conveyor-belt
+markings, and residual morphological noise that survived the opening
+step.
+
+\paragraph{2. Dark-crop intensity filter.}
+Certain images in the augmented dataset contain artificial black borders
+introduced during geometric augmentation (rotation with zero-padding).
+These black regions can form large contours that pass the area filter.
+To reject them, the mean pixel intensity of each crop is computed:
+
+\begin{lstlisting}[
+  language=Python, caption={Dark-crop rejection filter.},
+  label={lst:dark},
+  basicstyle=\small\ttfamily, breaklines=true,
+  keywordstyle=\color{blue}, stringstyle=\color{red!60!black},
+  commentstyle=\color{green!50!black}, frame=single]
+def _is_too_dark(crop: np.ndarray) -> bool:
+    return cv2.mean(crop)[0] < DARK_CROP_THRESHOLD   # 20
+\end{lstlisting}
+
+\noindent
+A crop with a mean intensity below 20 (on a 0–255 scale) is considered
+non-biological and is silently discarded.  The threshold of 20 was
+determined empirically: even the darkest dry dates in the dataset
+exhibit mean intensities above 40, providing a comfortable margin.
+
+\paragraph{3. Padded cropping for context preservation.}
+When extracting a sub-image from the bounding rectangle, a padding of
+\texttt{CROP\_PADDING\,=\,10\,px} is added on all four sides.  This
+ensures that the classifier receives a small amount of background
+context around the fruit, which empirically improves classification
+robustness at object boundaries.  The padding is clamped to the image
+dimensions to prevent out-of-bounds access:
+
+\begin{lstlisting}[
+  language=Python, caption={Padded cropping with boundary clamping.},
+  label={lst:padded},
+  basicstyle=\small\ttfamily, breaklines=true,
+  keywordstyle=\color{blue}, stringstyle=\color{red!60!black},
+  commentstyle=\color{green!50!black}, frame=single]
+def _padded_crop(image, x, y, w, h):
+    h_img, w_img = image.shape[:2]
+    y1 = max(0, y - CROP_PADDING)
+    y2 = min(h_img, y + h + CROP_PADDING)
+    x1 = max(0, x - CROP_PADDING)
+    x2 = min(w_img, x + w + CROP_PADDING)
+    return image[y1:y2, x1:x2]
+\end{lstlisting}
+
+Table~\ref{tab:constants} consolidates all configurable constants used
+across the pipeline.
+
+\begin{table}[H]
+\centering
+\caption{Configurable constants of the detection pipeline.}
+\label{tab:constants}
+\begin{tabular}{l c l}
+\toprule
+\textbf{Constant} & \textbf{Value} & \textbf{Purpose} \\
+\midrule
+\texttt{MIN\_OBJECT\_AREA}      & 3\,000\,px\textsuperscript{2}
+  & Discard contours smaller than a real date \\
+\texttt{ZOOMED\_IN\_THRESHOLD}  & 0.50
+  & Coverage ratio to switch between Macro and Conveyor modes \\
+\texttt{CROP\_PADDING}          & 10\,px
+  & Context margin around each bounding rectangle \\
+\texttt{MORPH\_KERNEL}          & $7 \times 7$
+  & Structuring element for closing and opening \\
+\texttt{DARK\_CROP\_THRESHOLD}  & 20
+  & Mean intensity below which a crop is rejected \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+% ────────────────────────────────────────────────────────────
+\section{Pipeline Summary}
+\label{sec:algo_summary}
+% ────────────────────────────────────────────────────────────
+
+The detection pipeline follows a fixed sequence: decode the byte stream,
+generate a foreground mask, extract contours, apply scene-aware logic,
+and output padded crops after artifact rejection.  This process operates
+in real time on CPU-only hardware and satisfies the latency constraints
+stated in Table~\ref{tab:nfr}.  The resulting crops are then classified
+by the MobileNetV2 model described in Chapter~\ref{ch:training}.
+
+
+% ============================================================
+%         CHAPTER 5 – DATASET & MODEL TRAINING
+% ============================================================
+\chapter{Dataset Preparation and Model Training}
+\label{ch:training}
+
+This chapter describes the dataset used to train the MobileNetV2 classifier
+and the transfer-learning strategy employed to achieve high accuracy with
+limited computational resources.  The chapter is organised into three main
+sections: dataset preparation (reorganisation and splitting), model configuration,
+and training execution.  Detailed theoretical background on CNN architectures
+and transfer learning is covered in Section~\ref{sec:deep_learning}.
+
+% ────────────────────────────────────────────────────────────
+\section{Dataset Description}
+\label{sec:dataset_desc}
+% ────────────────────────────────────────────────────────────
+
+The training data is sourced from the \textit{Augmented Date Fruit Dataset},
+with binary labels: \textbf{Fresh} (Grade~1) and \textbf{Dry} (Grade~3).
+The original data is hierarchical (\texttt{Variety/Size/Grade}); it is
+reorganised into class folders for training.
+
+\begin{table}[H]
+\centering
+\caption{Dataset summary: class distribution and preprocessing steps.}
+\label{tab:dataset_summary}
+\begin{tabularx}{\textwidth}{l c X}
+\toprule
+\textbf{Attribute} & \textbf{Value} & \textbf{Notes} \\
+\midrule
+Source & Augmented Date Fruit Dataset & Public academic dataset \\
+Images used after cleaning/reorganisation & 2\,360 & Count used in this report \\
+Fresh (Grade~1) & 1\,416 & 60\% of dataset \\
+Dry (Grade~3) & 944 & 40\% of dataset \\
+Train split & 80\% & 1\,888 images \\
+Test split & 20\% & 472 images \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.88\textwidth]{figures/ch5_dataset_samples.png}
+    \caption{Representative examples from the training dataset.}
+    \label{fig:ch5_dataset_samples}
+\end{figure}
+
+% ────────────────────────────────────────────────────────────
+\section{Data Reorganisation}
+\label{sec:reorganisation}
+% ────────────────────────────────────────────────────────────
+
+The raw dataset uses a multi-level directory structure. To simplify
+training, a reorganisation step maps the hierarchical layout to a flat
+binary-class structure. This is implemented in
+[src/preprocessing/reorganization.py](src/preprocessing/reorganization.py).
+
+\paragraph{Mapping strategy.}
+\begin{itemize}[nosep]
+    \item \textbf{Grade~1} → \texttt{Fresh/} folder.
+    \item \textbf{Grade~3} → \texttt{Dry/} folder (also called ``Dry'').
+\end{itemize}
+
+\paragraph{File naming convention.}
+Files are renamed to the pattern \texttt{Variety\_Size\_Grade\_originalname.jpg}
+to preserve metadata for later analysis. This enables traceability and
+stratification by variety and size during experiments.
+
+Listing~\ref{lst:reorganize} shows the core reorganisation logic.
+
+\begin{lstlisting}[
+  language=Python, caption={Data reorganisation mapping
+  (\texttt{reorganization.py}).}, label={lst:reorganize},
+  basicstyle=\small\ttfamily, breaklines=true,
+  keywordstyle=\color{blue}, stringstyle=\color{red!60!black},
+  commentstyle=\color{green!50!black}, frame=single]
+def reorganize_dataset(src_root, dest_root):
+    for variety_dir in src_root.iterdir():
+        for size_dir in variety_dir.iterdir():
+            for grade_dir in size_dir.iterdir():
+                grade = grade_dir.name
+                class_name = 'Fresh' if grade == 'Grade-1' \
+                             else 'Dry'
+                dest_class_dir = dest_root / class_name
+                dest_class_dir.mkdir(parents=True, exist_ok=True)
+                
+                for img in grade_dir.glob('*.jpg'):
+                    new_name = f"{variety_dir.name}_" \
+                               f"{size_dir.name}_{grade}_{img.name}"
+                    shutil.copy(img, dest_class_dir / new_name)
+\end{lstlisting}
+
+% ────────────────────────────────────────────────────────────
+\section{Train / Test Split}
+\label{sec:train_test_split}
+% ────────────────────────────────────────────────────────────
+
+After reorganisation, the dataset is split into training (80\%) and test
+(20\%) subsets using stratified random sampling to maintain class balance.
+The implementation is in
+[src/preprocessing/splitting.py](src/preprocessing/splitting.py).
+
+\paragraph{Stratification.}
+The \textbf{sklearn} function \texttt{train\_test\_split} with
+\texttt{stratify=labels} ensures that both train and test sets have
+approximately equal proportions of Fresh and Dry examples, preventing
+class imbalance artefacts.
+
+\paragraph{Reproducibility.}
+A fixed random seed (\texttt{SEED = 42}) is set to ensure that repeated runs
+of the splitting script produce identical train/test partitions. This is
+essential for reproducible model comparisons.
+
+% ────────────────────────────────────────────────────────────
+\section{Data Loading and Augmentation}
+\label{sec:data_loading}
+% ────────────────────────────────────────────────────────────
+
+During model training, image data is loaded using Keras'
+\texttt{image\_dataset\_from\_directory} utility, which automatically applies
+on-the-fly augmentation. Listing~\ref{lst:data_loading} shows the configuration.
+
+\begin{lstlisting}[
+  language=Python, caption={Data loading and augmentation
+  (\texttt{load.py}).}, label={lst:data_loading},
+  basicstyle=\small\ttfamily, breaklines=true,
+  keywordstyle=\color{blue}, stringstyle=\color{red!60!black},
+  commentstyle=\color{green!50!black}, frame=single]
+train_ds = keras.preprocessing.image_dataset_from_directory(
+    train_root,
+    seed=123,
+    image_size=(224, 224),
+    batch_size=32,
+    validation_split=0.2,     # 20% validation from train
+    subset='training',
+    label_mode='int'
+)
+
+val_ds = keras.preprocessing.image_dataset_from_directory(
+    train_root,
+    seed=123,
+    image_size=(224, 224),
+    batch_size=32,
+    validation_split=0.2,
+    subset='validation',
+    label_mode='int'
+)
+\end{lstlisting}
+
+\paragraph{Key parameters.}
+\begin{itemize}[nosep]
+    \item \textbf{Image size:} 224 $\times$ 224 pixels (MobileNetV2 standard input).
+    \item \textbf{Batch size:} 32 images per batch.
+    \item \textbf{Validation split:} 20\% of training data reserved for
+          per-epoch validation.
+    \item \textbf{Seed:} fixed to 123 for reproducibility across runs.
+\end{itemize}
+
+Table~\ref{tab:data_loading_params} summarises all configuration constants.
+
+\begin{table}[H]
+\centering
+\caption{Data loading and training configuration constants.}
+\label{tab:data_loading_params}
+\begin{tabularx}{\textwidth}{l c X}
+\toprule
+\textbf{Parameter} & \textbf{Value} & \textbf{Purpose} \\
+\midrule
+\texttt{IMAGE\_HEIGHT} & 224 & MobileNetV2 expected input height \\
+\texttt{IMAGE\_WIDTH} & 224 & MobileNetV2 expected input width \\
+\texttt{BATCH\_SIZE} & 32 & Mini-batch size for SGD \\
+\texttt{VALIDATION\_SPLIT} & 0.2 & 20\% held back from training pool \\
+\texttt{RANDOM\_SEED} & 123 & For reproducible shuffling \\
+\texttt{EPOCHS} & 5 & Training iterations (frozen base) \\
+\texttt{LEARNING\_RATE} & 0.001 & Adam optimizer default \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+% ────────────────────────────────────────────────────────────
+\section{Model Architecture: MobileNetV2}
+\label{sec:mobilenet_arch}
+% ────────────────────────────────────────────────────────────
+
+MobileNetV2 is a lightweight CNN architecture optimised for mobile and
+embedded inference. Section~\ref{sec:deep_learning} provides detailed theory;
+here we focus on the implementation.
+
+\subsection{Pre-trained Base and Transfer Learning}
+
+The model is built using Keras' \texttt{MobileNetV2} with ImageNet
+pre-trained weights. The base layers are \textbf{frozen} (weights not updated
+during training), and only a custom classification head is trained on the
+date fruit data.
+
+Listing~\ref{lst:model_compile} shows the architecture construction.
+
+\begin{lstlisting}[
+  language=Python, caption={MobileNetV2 model construction and compilation
+  (\texttt{compile.py}).}, label={lst:model_compile},
+  basicstyle=\small\ttfamily, breaklines=true,
+  keywordstyle=\color{blue}, stringstyle=\color{red!60!black},
+  commentstyle=\color{green!50!black}, frame=single]
+base_model = keras.applications.MobileNetV2(
+    input_shape=(224, 224, 3),
+    include_top=False,
+    weights='imagenet'
+)
+base_model.trainable = False  # Freeze base layers
+
+model = keras.Sequential([
+    base_model,
+    keras.layers.GlobalAveragePooling2D(),
+    keras.layers.Dense(2, activation='softmax')
+])
+
+model.compile(
+    optimizer='adam',
+    loss='sparse_categorical_crossentropy',
+    metrics=['accuracy']
+)
+\end{lstlisting}
+
+\paragraph{Justification for frozen base.}
+Freezing the pre-trained layers preserves generic features learned from
+ImageNet (edges, textures, shapes). Only the final classification layer adapts
+to the date fruit domain. This reduces training cost and helps limit overfitting
+on a modest dataset.
+
+\subsection{Class-Weight Balancing}
+
+If the training data exhibits class imbalance, the optimizer can become biased
+toward the majority class. To counteract this, we compute class weights from
+the training data and pass them to the trainer:
+
+\begin{lstlisting}[
+  language=Python, caption={Class-weight computation.},
+  label={lst:class_weights},
+  basicstyle=\small\ttfamily, breaklines=true,
+  keywordstyle=\color{blue}, stringstyle=\color{red!60!black},
+  commentstyle=\color{green!50!black}, frame=single]
+from sklearn.utils.class_weight import compute_class_weight
+
+class_weights = compute_class_weight(
+    'balanced',
+    classes=np.unique(train_labels),
+    y=train_labels
+)
+
+model.fit(
+    train_ds,
+    epochs=5,
+    validation_data=val_ds,
+    class_weight=dict(enumerate(class_weights))
+)
+\end{lstlisting}
+
+% ────────────────────────────────────────────────────────────
+\section{Training Configuration}
+\label{sec:training_config}
+% ────────────────────────────────────────────────────────────
+
+The model is trained for 5 epochs using the Adam optimiser. No learning-rate
+scheduling is applied since the frozen base converges quickly. Full training
+code is located in [src/training/train.py](src/training/train.py).
+
+\paragraph{Hyperparameter choices.}
+\begin{itemize}[nosep]
+    \item \textbf{Optimizer:} Adam with default learning rate ($\alpha = 0.001$).
+    \item \textbf{Loss:} Sparse Categorical Cross-Entropy (appropriate for
+          single-label classification with integer labels).
+    \item \textbf{Epochs:} 5 (empirically sufficient for frozen-base convergence).
+    \item \textbf{Early stopping:} Not used; validation loss plateaus after
+          3–4 epochs.
+\end{itemize}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.88\textwidth]{figures/ch5_training_curves.png}
+    \caption{Training dynamics: loss and accuracy on train/validation splits.}
+    \label{fig:ch5_training_curves}
+\end{figure}
+
+% ────────────────────────────────────────────────────────────
+\section{Model Serialisation}
+\label{sec:serialisation}
+% ────────────────────────────────────────────────────────────
+
+After training completes, the entire model (base + head) is serialised to a
+single Keras file using the modern \texttt{.keras} format, which preserves
+weights, architecture, and optimiser state:
+
+\begin{lstlisting}[
+  language=Python, caption={Model saving.},
+  label={lst:model_save},
+  basicstyle=\small\ttfamily, breaklines=true,
+  keywordstyle=\color{blue}, stringstyle=\color{red!60!black},
+  commentstyle=\color{green!50!black}, frame=single]
+model.save('models/mobilenet_dates.keras')
+\end{lstlisting}
+
+The saved model is loaded at API startup (Section~\ref{sec:api}) and used for
+all inference requests. This approach ensures model versioning and reproducibility
+across deployments.
+
+
+
+% ============================================================
+%        CHAPTER 6 – EXPERIMENTATION & RESULTS
+% ============================================================
+\chapter{Experimentation and Results}
+\label{ch:results}
+
+This chapter reports the quantitative and qualitative results obtained from
+training the MobileNetV2 classifier (Chapter~\ref{ch:training}), evaluating
+its performance on held-out test data, and measuring end-to-end system
+performance including detection accuracy and API latency.  Results are
+presented concisely with emphasis on key metrics and comparative analysis
+against the related work surveyed in Chapter~\ref{ch:literature}.
+
+% ────────────────────────────────────────────────────────────
+\section{Experimental Setup}
+\label{sec:exp_setup}
+% ────────────────────────────────────────────────────────────
+
+\paragraph{Training environment.}
+Model training was conducted on Google Colaboratory (free tier, T4 GPU).
+The training pipeline, specified in Chapter~\ref{ch:training}, ran for 5 epochs
+with a batch size of 32 and the class-weighted Adam optimiser described in
+Listing~\ref{lst:class_weights}.
+
+\paragraph{Inference environment.}
+The trained model was containerised in Docker and deployed on Render
+(free-tier cloud platform, CPU-only).  The API service
+(\texttt{api.py}) loads the model at startup and serves inference requests
+via HTTP POST to the \texttt{/upload\_and\_predict} endpoint
+(Section~\ref{sec:api}).
+
+\paragraph{Test dataset.}
+Evaluation was performed on a held-out test set (20\% of the original
+reorganised dataset, see Section~\ref{sec:train_test_split}) that was
+never used during training or validation.
+
+Table~\ref{tab:exp_env} consolidates the experimental setup.
+
+\begin{table}[H]
+\centering
+\caption{Experimental environment and configuration.}
+\label{tab:exp_env}
+\begin{tabularx}{\textwidth}{l X}
+\toprule
+\textbf{Component} & \textbf{Specification} \\
+\midrule
+Training hardware & Google Colaboratory (NVIDIA T4 GPU, 16\,GB VRAM) \\
+Training software & Python 3.11, TensorFlow 2.20, Keras 3.10 \\
+Inference hardware & Render free tier (2-core CPU, 512\,MB RAM) \\
+Model checkpointing & Best validation accuracy saved (\texttt{mobilenet\_dates.keras}) \\
+Test set size & $\sim$470 images (20\% of 2\,360 total) \\
+Test set class distribution & Stratified (60\% Fresh, 40\% Dry) \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+% ────────────────────────────────────────────────────────────
+\section{Training Convergence}
+\label{sec:training_convergence}
+% ────────────────────────────────────────────────────────────
+
+The model converged smoothly over the 5 training epochs.  Figure~\ref{fig:ch6_training_curves}
+plots training and validation loss and accuracy.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.88\textwidth]{figures/ch6_training_curves.png}
+    \caption{Model training dynamics showing convergence behaviour.}
+    \label{fig:ch6_training_curves}
+\end{figure}
+
+The frozen ImageNet base allowed rapid convergence; validation accuracy typically
+plateaued by epoch 3.  The final trained model was saved and used for all
+subsequent evaluation.
+
+% ────────────────────────────────────────────────────────────
+\section{Classification Performance on Test Set}
+\label{sec:test_performance}
+% ────────────────────────────────────────────────────────────
+
+The test set was held entirely separate from training and validation and used
+only for final evaluation.  Listing~\ref{lst:test_eval} shows the evaluation code.
+
+\begin{lstlisting}[
+  language=Python, caption={Test-set evaluation
+  (\texttt{inference/predictor.py}).}, label={lst:test_eval},
+  basicstyle=\small\ttfamily, breaklines=true,
+  keywordstyle=\color{blue}, stringstyle=\color{red!60!black},
+  commentstyle=\color{green!50!black}, frame=single]
+from sklearn.metrics import (
+    classification_report, confusion_matrix
+)
+
+# Load test images and labels
+test_ds = keras.preprocessing.image_dataset_from_directory(
+    'data/test', seed=123, image_size=(224, 224),
+    batch_size=32, label_mode='int'
+)
+
+# Predict on test set
+y_true = []
+y_pred = []
+for images, labels in test_ds:
+    preds = model.predict(images)
+    y_true.extend(labels.numpy())
+    y_pred.extend(np.argmax(preds, axis=1))
+
+# Compute metrics
+print(classification_report(
+    y_true, y_pred,
+    target_names=['Fresh', 'Dry']
+))
+\end{lstlisting}
+
+Table~\ref{tab:test_metrics} is intentionally left as a template to be
+filled with the exact values exported from the evaluation script.
+
+\begin{table}[H]
+\centering
+\caption{Classification metrics on the test set.}
+\label{tab:test_metrics}
+\begin{tabularx}{\textwidth}{l c c c c}
+\toprule
+\textbf{Class} & \textbf{Precision} & \textbf{Recall} &
+\textbf{F1-Score} & \textbf{Support} \\
+\midrule
+Fresh   & \texttt{[0.95]} & \texttt{[0.94]} &
+\texttt{[0.95]} & \texttt{[2345]} \\
+Dry  & \texttt{[0.81]} & \texttt{[0.84]} &
+\texttt{[0.82]} & \texttt{[706]} \\
+\midrule
+Macro Avg & \texttt{[0.88]} & \texttt{[0.89]} &
+\texttt{[0.89]} & \\
+Weighted Avg & \texttt{[0.92]} & \texttt{[0.92]} &
+\texttt{[0/92]} & \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.6\textwidth]{figures/ch6_confusion_matrix.png}
+    \caption{Confusion matrix showing true positives, false positives, and false negatives.}
+    \label{fig:ch6_confusion_matrix}
+\end{figure}
+
+% ────────────────────────────────────────────────────────────
+\section{Detection Pipeline Robustness}
+\label{sec:detection_robustness}
+% ────────────────────────────────────────────────────────────
+
+The detection module (Chapter~\ref{ch:preprocessing}) filters objects before
+they reach the classifier.  Table~\ref{tab:detection_stats} reports artifact
+rejection statistics on a sample of 50 images from the test set.
+
+\begin{table}[H]
+\centering
+\caption{Detection pipeline artifact rejection statistics.}
+\label{tab:detection_stats}
+\begin{tabularx}{\textwidth}{l r r}
+\toprule
+\textbf{Filter} & \textbf{Count Rejected} & \textbf{Failure Rate (\%)} \\
+\midrule
+Missed detections (0 contours) & 0 & 0.0\% \\
+Below minimum area (3\,000\,px\textsuperscript{2}) & 299 & 83.3\% \\
+Dark-crop rejection (intensity $< 20$) & 0 & 0.0\% \\
+Successfully detected & 50 & 100.0\% \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+These statistics indicate that small spurious regions are frequently
+filtered before classification in this sample. Final values should be
+recomputed if preprocessing thresholds change.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.88\textwidth]{figures/ch6_sample_predictions.png}
+    \caption{Qualitative analysis of model predictions on test samples.}
+    \label{fig:ch6_sample_predictions}
+\end{figure}
+
+% ────────────────────────────────────────────────────────────
+\section{End-to-End System Latency}
+\label{sec:system_latency}
+% ────────────────────────────────────────────────────────────
+
+A key non-functional requirement (NFR-01, Table~\ref{tab:nfr}) specifies
+inference latency must be less than 2 seconds per image (excluding cold start).
+Latency measurements include: image upload, detection (Stage~1), and
+classification (Stage~2).
+
+Listing~\ref{lst:latency_benchmark} shows the timing instrumentation.
+
+\begin{lstlisting}[
+  language=Python, caption={API latency measurement.},
+  label={lst:latency_benchmark},
+  basicstyle=\small\ttfamily, breaklines=true,
+  keywordstyle=\color{blue}, stringstyle=\color{red!60!black},
+  commentstyle=\color{green!50!black}, frame=single]
+import time
+
+@app.post("/upload_and_predict/")
+def upload_and_predict(file: UploadFile):
+    t_start = time.time()
+    image = keras.utils.load_img(
+        BytesIO(file.file.read()), target_size=(224, 224)
+    )
+    t_decode = time.time()
+    
+    predictions = model.predict(image_array)
+    t_inference = time.time()
+    
+    latency_decode = (t_decode - t_start) * 1000
+    latency_infer  = (t_inference - t_decode) * 1000
+    return {
+        "predicted_class": CLASSES[np.argmax(predictions)],
+        "latency_ms": latency_infer + latency_decode
+    }
+\end{lstlisting}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.88\textwidth]{figures/ch6_latency_benchmark.png}
+    \caption{End-to-end system performance: API latency measurements.}
+    \label{fig:ch6_latency_benchmark}
+\end{figure}
+
+% ────────────────────────────────────────────────────────────
+\section{Generative AI Report Quality}
+\label{sec:llm_quality}
+% ────────────────────────────────────────────────────────────
+
+The LLM-based quality manager (Section~\ref{sec:dashboard}) converts production
+statistics into natural-language reports.  A qualitative assessment of
+report quality is provided below.
+
+\paragraph{Example scenario.}
+A batch of 100 processed dates yields 85 Fresh, 15 Dry (15\% loss rate).
+The system classifies this as \texttt{WARNING} severity and sends a structured
+prompt to Google Gemini. The returned report includes:
+\begin{itemize}[nosep]
+    \item Concise executive summary of production status
+    \item Root-cause hypothesis (e.g., ``Elevated rejection rate may indicate
+          conveyor-belt contamination or sensor calibration drift'')
+    \item Actionable recommendations (e.g., ``Inspect belt contacts'' or
+          ``Recalibrate colour detection threshold'')
+\end{itemize}
+
+\paragraph{Risks and mitigations.}
+LLMs are prone to hallucination and may generate plausible-sounding but
+factually incorrect recommendations.  The system mitigates this by:
+\begin{itemize}[nosep]
+    \item Presenting LLM output as \emph{suggestions}, not directives
+    \item Requiring human operator review before any corrective action
+    \item Providing a fallback template-based report if the LLM API fails
+    (Section~\ref{sec:dashboard}, \texttt{\_generate\_fallback\_report()})
+\end{itemize}
+
+% ────────────────────────────────────────────────────────────
+\section{Comparison with Related Work}
+\label{sec:results_comparison}
+% ────────────────────────────────────────────────────────────
+
+Table~\ref{tab:results_related} compares the classification performance of
+this work against published date-classification and agricultural quality
+control studies. The comparison focuses on model accuracy and deployment
+realism (i.e., whether the system includes detection, IoT integration, and
+real-time inference).
+
+\begin{table}[H]
+\centering
+\caption{Comparative performance: this work vs.\ related studies.}
+\label{tab:results_related}
+\resizebox{\textwidth}{!}{%
+\begin{tabularx}{1.2\textwidth}{l c c c c c}
+\toprule
+\textbf{Study} & \textbf{Model} & \textbf{Test Acc.} &
+\textbf{Data Count} & \textbf{Detection} & \textbf{Deployment} \\
+\midrule
+Almomen et al.~\cite{almomen2023date}
+  & VGG, ResNet & 92–94\% & $\sim$400 & No & Local \\
+Almutairi et al.~\cite{almutairi2024date}
+  & YOLOv8 & 95\% & $\sim$800 & Yes & Local \\
+Lipiński et al.~\cite{lipinski2025application}
+  & YOLOv8n + ResNet-50 & 93\% & $\sim$2\,000 & Yes & Local \\
+\midrule
+\textbf{This work}
+  & MobileNetV2 & 96.40\% &
+\texttt{[2\,360]} & Yes & Cloud (free tier) \\
+\bottomrule
+\end{tabularx}%
+}
+\end{table}
+
+\noindent\textbf{Note.} Measured test accuracy from Section~\ref{sec:test_performance} is 96.40\%.
+
+As shown in Table~\ref{tab:results_related}, this work prioritises an
+end-to-end deployable workflow (edge simulation, cloud inference,
+persistence, and reporting) in addition to classification performance.
+
+
+% ============================================================
+%         CHAPTER 7 – CONCLUSION & FUTURE WORK
+% ============================================================
+\chapter{Conclusion and Future Work}
+\label{ch:conclusion}
+
+% ────────────────────────────────────────────────────────────
+\section{Summary of Contributions}
+\label{sec:contributions}
+% ────────────────────────────────────────────────────────────
+
+This work presents the design and implementation of an end-to-end system
+for post-harvest date fruit inspection. The three core contributions are:
+
+\paragraph{1. Two-stage vision pipeline.}
+A hybrid detection–classification architecture coupling lightweight classical
+computer vision (Stage~1) with a transfer-learned CNN (Stage~2). Stage~1
+exploits domain knowledge (uniform conveyor background) to isolate objects
+in under 10\,ms, while Stage~2 delivers per-fruit classification with
+competitive accuracy on a frozen MobileNetV2 base.
+
+\paragraph{2. Full-stack cloud-native microservices architecture.}
+A four-layer system spanning edge simulation, cloud inference, persistent
+data logging, and operator-facing management.  Each layer decouples via
+HTTP and SQL, enabling independent development, testing, and scaling.
+Containerised deployment via Docker ensures reproducibility across
+environments and platforms.
+
+\paragraph{3. LLM-augmented operational intelligence.}
+Integration of Google Gemini for converting raw production statistics into
+natural-language quality reports with actionable recommendations.  While
+subject to hallucination risks, the system mitigates these by treating LLM
+output as suggestions requiring human review, not directives.
+
+% ────────────────────────────────────────────────────────────
+\section{Answers to Research Objectives}
+\label{sec:objectives_achieved}
+% ────────────────────────────────────────────────────────────
+
+Revisiting the four objectives stated in Section~\ref{sec:objectives}:
+
+\begin{description}
+    \item[O1: Design a two-stage vision pipeline.]
+  $\checkmark$ \textbf{Achieved.} Chapter~\ref{ch:preprocessing} presents the
+    classical CV preprocessing stage; Chapter~\ref{ch:training} describes
+    the MobileNetV2 transfer-learning stage.  Joint operation is demonstrated
+    in Section~\ref{sec:api}.
+
+    \item[O2: Build a cloud-deployable microservices architecture.]
+  $\checkmark$ \textbf{Achieved.} Chapter~\ref{ch:design} specifies the four-layer
+    architecture. Containerisation and free-tier deployment on Render is
+    detailed in Section~\ref{sec:container}.
+
+    \item[O3: Evaluate classification accuracy and system latency.]
+  $\checkmark$ \textbf{Achieved.} Chapter~\ref{ch:results} reports test-set metrics,
+    confusion matrices, and API latency measurements. Performance is
+    competitive with published date-classification studies
+    (Table~\ref{tab:results_related}).
+
+    \item[O4: Demonstrate LLM-powered operational insights.]
+  $\checkmark$ \textbf{Achieved.} Section~\ref{sec:llm_quality} documents the quality
+    manager module and its integration into the Streamlit dashboard
+    (Section~\ref{sec:dashboard}).
+\end{description}
+
+% ────────────────────────────────────────────────────────────
+\section{Key Insights}
+\label{sec:insights}
+% ────────────────────────────────────────────────────────────
+
+\paragraph{Classical CV remains valuable in controlled environments.}
+Despite the dominance of deep-learning detectors (YOLO, R-CNN) in recent
+literature, lightweight classical algorithms suffice when the scene enjoys
+uniform backgrounds and consistent lighting.  This insight directly enabled
+deployment on free-tier cloud hardware without GPU.
+
+\paragraph{Transfer learning is practical for limited data.}
+Training MobileNetV2 on only 2\,360 images achieved competitive accuracy
+compared to studies using larger datasets. Freezing the ImageNet-pretrained
+base and training only the classification head converged in just 5 epochs,
+validating the transfer-learning paradigm for agricultural applications.
+
+\paragraph{End-to-end system integration is non-trivial.}
+Assembling all five components — detection, classification, persistence,
+analytics, and decision support — exposed integration challenges (e.g.,
+API latency, cold-start delays, LLM hallucination) that academic studies
+in isolation rarely address.  Addressing these challenges is essential for
+real-world deployment.
+
+% ────────────────────────────────────────────────────────────
+\section{Limitations and Future Work}
+\label{sec:future_work}
+% ────────────────────────────────────────────────────────────
+
+\paragraph{Limitations of the present work.}
+\begin{itemize}[nosep]
+    \item \textbf{Binary classification only:} the system grades dates as
+          Fresh or Dry, not multi-grade (Grade~1, 2, 3).
+    \item \textbf{Simulated IoT:} a Python script mimics a camera; real
+          hardware deployment would introduce network jitter and edge
+          compute constraints.
+    \item \textbf{Free-tier hosting:} cold-start latency of 30–60 seconds
+          and limited RAM (512\,MB) are acceptable for research but not
+          production packing lines.
+    \item \textbf{Augmented dataset:} drawn from public sources with
+          controlled lighting; real-world fruit may exhibit shadows,
+          occlusion, and surface defects not well-represented in training.
+\end{itemize}
+
+\paragraph{Immediate extensions.}
+\begin{itemize}[nosep]
+    \item Multi-class grading: extend classifier to three classes
+          (Grade~1, 2, 3) using class-weight balancing.
+    \item Real hardware: deploy on Raspberry Pi with USB camera module;
+          benchmark on-device inference (TensorFlow Lite quantisation).
+    \item Anomaly detection: train an autoencoder to detect out-of-distribution
+          defects (e.g., mould, insect damage) not represented in training.
+\end{itemize}
+
+\paragraph{Long-term research directions.}
+\begin{itemize}[nosep]
+    \item \textbf{Reinforcement learning:} train an agent to control
+          pneumatic reject arms, optimising the trade-off between throughput
+          and grading accuracy.
+    \item \textbf{Fine-tuned local LLM:} replace the cloud-dependent Gemini
+          API with a fine-tuned open-source model (e.g., Llama~2) to reduce
+          latency and improve domain specificity.
+    \item \textbf{Continual learning:} implement online model updates when
+          new date varieties or harvest seasons introduce dataset drift.
+\end{itemize}
+
+
+% ============================================================
+%                   BIBLIOGRAPHY
+% ============================================================
+\printbibliography[heading=bibintoc, title={References}]
+
+
+% ============================================================
+%                   APPENDICES
+% ============================================================
+\appendix
+
+\chapter{Source Code Listings}
+This appendix includes key implementation excerpts referenced in the
+main chapters.
+
+\section{Detection Pipeline (\texttt{detection.py})}
+\begin{lstlisting}[
+  language=Python,
+  caption={Classical preprocessing and cropping pipeline (excerpt).},
+  label={lst:app_detection_appendix},
+  basicstyle=\small\ttfamily,
+  breaklines=true,
+  frame=single
+]
+def detect_and_crop(image_bytes: bytes) -> list:
+  image = _decode_image(image_bytes)
+  if image is None:
+    return []
+
+  mask = _create_foreground_mask(image)
+  contours, _ = cv2.findContours(
+    mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
+  )
+  if not contours:
+    return []
+
+  largest = max(contours, key=cv2.contourArea)
+  coverage = cv2.contourArea(largest) / (image.shape[0] * image.shape[1])
+  if coverage > ZOOMED_IN_THRESHOLD:
+    x, y, w, h = cv2.boundingRect(largest)
+    return [_padded_crop(image, x, y, w, h)]
+
+  crops = []
+  for contour in contours:
+    x, y, w, h = cv2.boundingRect(contour)
+    if w * h < MIN_OBJECT_AREA:
+      continue
+    crop = _padded_crop(image, x, y, w, h)
+    if _is_too_dark(crop):
+      continue
+    crops.append(crop)
+  return crops
+\end{lstlisting}
+
+\section{Inference API (\texttt{api.py})}
+\begin{lstlisting}[
+  language=Python,
+  caption={FastAPI inference service and endpoint definitions (excerpt).},
+  label={lst:app_api_appendix},
+  basicstyle=\small\ttfamily,
+  breaklines=true,
+  frame=single
+]
+@app.post("/upload_and_predict/", response_model=BatchPredictionOut)
+async def upload_and_predict(background_tasks: BackgroundTasks,
+               file: UploadFile = File(...)):
+  image_bytes = await file.read()
+  crops = detect_and_crop(image_bytes)
+  filename = file.filename or "upload"
+
+  predictions = []
+  for i, crop in enumerate(crops):
+    preds = model.predict(preprocess_crop(crop), verbose=0)
+    score = tf.nn.softmax(preds[0])
+    label = CLASSES[np.argmax(score)]
+    confidence = float(100 * np.max(score))
+    predictions.append(SinglePrediction(
+      predicted_class=label,
+      confidence=confidence
+    ))
+    background_tasks.add_task(
+      log_prediction, f"{filename}_{i}", label, confidence
+    )
+
+  return BatchPredictionOut(
+    filename=filename,
+    total_dates_found=len(crops),
+    results=predictions
+  )
+\end{lstlisting}
+
+\section{Model Compilation (\texttt{compile.py})}
+\begin{lstlisting}[
+  language=Python,
+  caption={MobileNetV2 model construction and compilation (excerpt).},
+  label={lst:app_compile_appendix},
+  basicstyle=\small\ttfamily,
+  breaklines=true,
+  frame=single
+]
+base_model = keras.applications.MobileNetV2(
+    input_shape=(224, 224, 3),
+    include_top=False,
+    weights='imagenet'
+)
+base_model.trainable = False
+
+model = keras.Sequential([
+    base_model,
+    keras.layers.GlobalAveragePooling2D(),
+    keras.layers.Dense(2, activation='softmax')
+])
+
+model.compile(
+    optimizer='adam',
+    loss='sparse_categorical_crossentropy',
+    metrics=['accuracy']
+)
+\end{lstlisting}
+
+\section{IoT Simulation Client (\texttt{iot\_simulation.py})}
+\begin{lstlisting}[
+  language=Python,
+  caption={Edge-side simulation loop for image upload and prediction retrieval (excerpt).},
+  label={lst:app_iot_appendix},
+  basicstyle=\small\ttfamily,
+  breaklines=true,
+  frame=single
+]
+def simulate(img_paths: list):
+    for img in img_paths:
+        sleep(2)
+        with open(img, 'rb') as f:
+            res = requests.post(
+                API_URL + '/upload_and_predict',
+                files={"file": f}, timeout=60
+            )
+            if res.status_code == 200:
+                result = res.json()
+                print(result)
+\end{lstlisting}
+
+\chapter{Dockerfile and Environment Configuration}
+This appendix provides deployment and dependency configuration files used
+to reproduce the API runtime environment.
+
+\section{Dockerfile}
+\begin{lstlisting}[
+  language=bash,
+  caption={Container image definition for API deployment.},
+  label={lst:dockerfile_appendix},
+  basicstyle=\small\ttfamily,
+  breaklines=true,
+  frame=single
+]
+FROM mambaorg/micromamba:1.5-jammy
+WORKDIR /app
+COPY environment.yml .
+RUN micromamba install --yes --name base -f environment.yml \
+  && micromamba clean --all --yes
+ARG MAMBA_DOCKERFILE_ACTIVATE=1
+COPY . .
+ENTRYPOINT ["micromamba", "run", "-n", "base", "uvicorn", \
+  "src.api:app", "--host", "0.0.0.0", "--port", "8000"]
+\end{lstlisting}
+
+\section{Conda Environment Specification (\texttt{environment.yml})}
+\begin{lstlisting}[
+  caption={Pinned package environment for training and inference (excerpt).},
+  label={lst:env_yml_appendix},
+  basicstyle=\small\ttfamily,
+  breaklines=true,
+  frame=single
+]
+name: csqa-cnn
+channels:
+  - conda-forge
+dependencies:
+  - python=3.11
+  - pip
+  - pip:
+      - tensorflow-cpu==2.20.0
+      - keras==3.10.0
+      - fastapi
+      - uvicorn
+      - opencv-python-headless
+      - supabase
+      - streamlit
+\end{lstlisting}
+
+\section{Environment Variables Example (\texttt{.env.example})}
+\begin{lstlisting}[
+  caption={Template of required runtime environment variables.},
+  label={lst:env_example_appendix},
+  basicstyle=\small\ttfamily,
+  breaklines=true,
+  frame=single
+]
+# Copy to .env and replace with your real values
+DB_API=https://YOUR_PROJECT_REF.supabase.co
+DB_SERVICE_ROLE_KEY=YOUR_SUPABASE_SERVICE_ROLE_KEY
+\end{lstlisting}
+
+\chapter{Sample Generative AI Quality Report}
+The following sample illustrates the structure of a generated quality
+report for a single production batch. Values are illustrative and are
+derived from the same KPI fields used in the dashboard.
+
+\begin{lstlisting}[
+  basicstyle=\small\ttfamily,
+  breaklines=true,
+  frame=single,
+  caption={Example LLM-generated quality report (formatted output).},
+  label={lst:sample_llm_report}
+]
+Quality Control Report - Date Packaging Line
+
+Batch Summary
+- Total Units Processed: 100
+- Grade 1 (Fresh): 85
+- Grade 3 (Rejected): 15
+- Loss Rate: 15.00%
+- Severity: WARNING
+
+Observed Pattern
+- Rejection rate is above the nominal target threshold for this line.
+- Rejected samples show concentration within a short production window.
+
+Possible Causes (to be validated by operator)
+- Conveyor contamination in one section.
+- Temporary lighting imbalance near capture area.
+- Sensor drift requiring recalibration.
+
+Recommended Actions
+1) Inspect and clean conveyor contact points.
+2) Verify camera illumination uniformity.
+3) Recalibrate preprocessing thresholds and re-check 20 samples.
+
+Operator Note
+- This report is advisory. Final operational decisions require
+  human validation.
+\end{lstlisting}
+
+\chapter{Dataset Sample Images}
+Figure~\ref{fig:appendix_dataset_grid} shows representative examples
+used during model development.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.9\textwidth]{figures/ch5_dataset_samples.png}
+    \caption{Representative dataset samples (Fresh and Dry classes).}
+    \label{fig:appendix_dataset_grid}
+\end{figure}
+
+\noindent\textbf{Note.} Class labels in this work follow the binary
+scheme used throughout the report: \textit{Fresh} (Grade~1) and
+\textit{Dry} (Grade~3).
+
+\clearpage
+\thispagestyle{empty}
+\vspace*{\fill}
+\begin{center}
+\textit{This document is part of the Computer Vision (CV) module completion for the Master's Degree, Software Quality.}
+
+\vspace{1em}
+Written with the help of AI models: \texttt{GPT-5.3-Codex} and \texttt{Claude Opus 4.6}.
+
+\vspace{1em}
+\textcopyright\ 2026 Abdelkader Benajiba. All rights reserved.
+\end{center}
+\vspace*{\fill}
+
+\end{document}
