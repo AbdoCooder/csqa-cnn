@@ -7,3 +7,9 @@ uvicorn==0.40.0
 supabase==2.27.2
 python-dotenv==1.2.1
 python-multipart==0.0.22
+streamlit==1.39.0
+pandas==2.2.2
+plotly==5.24.0
+google-genai==0.8.3
+markdown==3.7
+weasyprint==62.3

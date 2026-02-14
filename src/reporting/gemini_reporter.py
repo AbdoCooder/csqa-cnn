@@ -6,7 +6,7 @@ from google.genai import types
 
 class GeminiQCReporter:
     """
-    Génère un rapport QC (français) à partir de statistiques (total/fresh/dry).
+    Generates a QC (Quality Control) report from statistics (total/fresh/dry).
     """
 
     def __init__(self, model_name: str = "gemini-2.5-flash"):
@@ -19,56 +19,87 @@ class GeminiQCReporter:
     @staticmethod
     def _severity(reject_rate: float) -> str:
         if reject_rate > 15:
-            return "CRITIQUE"
+            return "CRITICAL"
         if reject_rate > 5:
             return "WARNING"
         return "OK"
 
-    def generate_report(self, total: int, fresh: int, dry: int) -> str:
+    def generate_report(self, total: int, fresh: int, dry: int, time_period: str = "") -> str:
         if total <= 0:
-            return "Impossible de générer un rapport : total = 0."
+            return "Cannot generate report: total = 0."
         if fresh < 0 or dry < 0 or (fresh + dry) > total:
-            return "Impossible de générer un rapport : statistiques incohérentes."
+            return "Cannot generate report: inconsistent statistics."
 
         reject_rate = (dry / total) * 100.0
+        accept_rate = (fresh / total) * 100.0
         severity = self._severity(reject_rate)
 
+        time_context = f"Time Period: {time_period}\n" if time_period else ""
+
         prompt = f"""
-Tu es un ingénieur Qualité dans une usine de conditionnement de dattes.
-Rédige un rapport de contrôle qualité professionnel en FRANÇAIS, en Markdown.
+You are a Quality Control Manager in a date fruit processing facility.
+Generate a CONCISE executive quality control report in Markdown format.
 
-Contexte:
-- Le tri classe les fruits en Fresh (acceptés) et Dry (rejetés).
-- Dry = dessèchement / perte d'humidité / non conforme au standard premium.
+Context:
+- Automated sorting classifies fruits as Fresh (accepted) or Dry (rejected).
+- Dry = desiccation / moisture loss / fails premium quality standards.
 
-Données du lot:
-- Total traité : {total}
-- Fresh (acceptés) : {fresh}
-- Dry (rejetés) : {dry}
-- Taux de rejet : {reject_rate:.2f} %
-- Statut gravité : {severity} (OK ≤ 5%, WARNING 5–15%, CRITIQUE > 15%)
+Batch Data:
+- {time_context}Total Processed: {total}
+- Fresh (Accepted): {fresh} ({accept_rate:.1f}%)
+- Dry (Rejected): {dry} ({reject_rate:.1f}%)
+- Status: {severity} (OK ≤ 5%, WARNING 5-15%, CRITICAL > 15%)
 
-Contraintes:
-- 250 à 450 mots
-- Pas d'invention de chiffres
-- Actions concrètes, applicables immédiatement
+Requirements:
+- **Maximum 200 words** - managers need executive summaries, not essays
+- **Data-first approach** - prioritize numbers, percentages, tables over prose
+- **No invented data** - use only the provided statistics
+- **Actionable insights only** - no generic advice
 
-Structure obligatoire:
-1) Résumé exécutif
-2) Indicateurs du lot (liste à puces)
-3) Analyse de gravité (1 paragraphe)
-4) Hypothèses de causes probables (3 à 5 puces)
-5) Actions correctives immédiates (3 à 5 puces)
-6) Contrôles recommandés pour le prochain lot (2 à 4 puces)
-7) Note qualité: "À valider par le responsable qualité."
+Mandatory Structure:
+
+## Quality Control Report
+
+### 📊 Key Metrics
+| Metric | Value | Status |
+|--------|-------|--------|
+| Total Processed | {total} | - |
+| Fresh (Accepted) | {fresh} ({accept_rate:.1f}%) | ✓ |
+| Dry (Rejected) | {dry} ({reject_rate:.1f}%) | {severity} |
+| Loss Rate | {reject_rate:.1f}% | {severity} |
+
+### 🎯 Status: **{severity}**
+
+{{% if severity == "CRITICAL" %}}
+**Immediate Action Required**: Loss rate exceeds 15% threshold.
+{{% elif severity == "WARNING" %}}
+**Attention Needed**: Loss rate above normal range (5-15%).
+{{% else %}}
+**Normal Operations**: Loss rate within acceptable limits.
+{{% endif %}}
+
+### ⚡ Top 3 Actions
+1. [Most critical action based on severity]
+2. [Second priority action]
+3. [Third priority action]
+
+### 🔍 Root Causes (2-3 max)
+- [Probable cause 1]
+- [Probable cause 2]
+
+---
+*Report generated on {time_context.strip() if time_context else 'current batch'}*
+*Requires Quality Manager approval before distribution*
+
+Keep it visual, data-heavy, and under 200 words of actual text content.
 """
 
         resp = self.client.models.generate_content(
             model=self.model_name,
             contents=types.Part.from_text(text=prompt),
             config=types.GenerateContentConfig(
-                temperature=0.4,
-                top_p=0.9,
+                temperature=0.3,
+                top_p=0.85,
             ),
         )
-        return (resp.text or "").strip() or "Rapport vide (réessaye)."
+        return (resp.text or "").strip() or "Report generation failed (retry)."
