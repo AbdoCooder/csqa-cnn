@@ -246,7 +246,7 @@ def render_report_generator():
             button_disabled = total == 0 or error_msg is not None
             button_label = "🤖 Generate AI Report" if not button_disabled else "⚠️ No Data to Report"
             
-            if st.button(button_label, type="primary", use_container_width=True, disabled=button_disabled):
+            if st.button(button_label, type="primary", disabled=button_disabled):
                 with st.spinner("Generating report with AI... This may take 5-10 seconds"):
                     try:
                         reporter = GeminiQCReporter()
@@ -284,7 +284,7 @@ def render_report_generator():
         col_pdf, col_md = st.columns(2)
         
         with col_pdf:
-            if st.button("📥 Download as PDF", type="secondary", use_container_width=True):
+            if st.button("📥 Download as PDF", type="secondary"):
                 try:
                     with st.spinner("Generating PDF..."):
                         pdf_gen = PDFGenerator()
@@ -301,8 +301,7 @@ def render_report_generator():
                             label="💾 Save PDF",
                             data=pdf_bytes,
                             file_name=os.path.basename(pdf_path),
-                            mime="application/pdf",
-                            use_container_width=True
+                            mime="application/pdf"
                         )
                         
                         st.success(f"✅ PDF ready! Saved to: {pdf_path}")
@@ -314,8 +313,7 @@ def render_report_generator():
                 label="📄 Download Markdown",
                 data=st.session_state.generated_report,
                 file_name=f"QC_Report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.md",
-                mime="text/markdown",
-                use_container_width=True
+                mime="text/markdown"
             )
 
 
@@ -509,10 +507,10 @@ def main():
     
     # Sidebar
     with st.sidebar:
-        st.image("https://via.placeholder.com/200x80/1e40af/ffffff?text=Smart+Harvest", use_container_width=True)
+        st.image("https://via.placeholder.com/200x80/1e40af/ffffff?text=Smart+Harvest", use_column_width=True)
         st.markdown("### 🎛️ Dashboard Controls")
         
-        if st.button("🔄 Refresh Data", use_container_width=True):
+        if st.button("🔄 Refresh Data"):
             st.rerun()
         
         st.markdown("---")
