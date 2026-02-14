@@ -355,7 +355,7 @@ def render_image_predictor():
                                     paper_bgcolor="rgba(0,0,0,0)",
                                     font={'color': "#e2e8f0", 'size': 9}
                                 )
-                                st.plotly_chart(fig, use_container_width=True, key=f"fruit_gauge_{idx}")
+                                st.plotly_chart(fig, use_container_width=True, key=f"fruit_gauge_{img_idx}_{idx}")
                 
                 # Quality Assessment
                 rejection_rate = (dry_count / total_fruits_found * 100) if total_fruits_found > 0 else 0
