@@ -134,11 +134,8 @@ async def upload_and_predict(background_tasks: BackgroundTasks, file: UploadFile
     predictions = []
     for i, crop in enumerate(crops):
         preds = model.predict(preprocess_crop(crop), verbose=0)
-        score = tf.nn.softmax(preds[0])
-
-        label = CLASSES[np.argmax(score)]
-        confidence = float(100 * np.max(score))
-
+        label = CLASSES[np.argmax(preds[0])]
+        confidence = float(100 * np.max(preds[0]))
         predictions.append(SinglePrediction(predicted_class=label, confidence=confidence))
         background_tasks.add_task(log_prediction, f"{filename}_{i}", label, confidence)
 
