@@ -15,14 +15,24 @@ from dotenv import load_dotenv
 from fastapi import BackgroundTasks, FastAPI, File, UploadFile
 from pydantic import BaseModel
 from supabase import Client, create_client
-
 from .preprocessing.detection import detect_and_crop
+# LLM ========================================================
+from src.reporting.gemini_reporter import GeminiQCReporter
+from fastapi.middleware.cors import CORSMiddleware
+# ============================================================
 
 load_dotenv()
 
 SRC_DIR = Path(__file__).resolve().parent
 MODEL_PATH = SRC_DIR.parent / 'models' / 'mobilenet_dates.keras'
 CLASSES = ['Fresh', 'Dry']
+
+# LLM ========================================================
+GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
+if not GEMINI_API_KEY:
+    print("CRITICAL ERROR: GEMINI_API_KEY is missing in .env")
+    sys.exit(1)
+# ============================================================
 
 def require_env(name: str) -> str:
     """Return required environment variable or raise a clear error."""
@@ -45,6 +55,38 @@ except (FileNotFoundError, OSError, ValueError) as e:
     print(f"Failed to load model: {e}")
     sys.exit(1)
 
+# LLM ========================================================
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+reporter = GeminiQCReporter(model_name="gemini-2.5-flash")
+
+class ReportIn(BaseModel):
+    total: int
+    fresh: int
+    dry: int
+
+class ReportOut(BaseModel):
+    report_md: str
+
+@app.post("/generate_report/", response_model=ReportOut)
+def generate_report(payload: ReportIn):
+    """
+    Generate a French Quality Control report using Gemini LLM.
+    """
+    report = reporter.generate_report(
+        total=payload.total,
+        fresh=payload.fresh,
+        dry=payload.dry
+    )
+    return ReportOut(report_md=report)
+
+# ============================================================
 
 class SinglePrediction(BaseModel):
     """Classification result for a single detected date fruit."""

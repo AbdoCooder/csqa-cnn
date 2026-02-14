@@ -9,6 +9,8 @@ RUN micromamba install --yes \
   -f environment.yml \
   && micromamba clean --all --yes
 
+RUN micromamba run -n base pip install google-genai
+
 ARG MAMBA_DOCKERFILE_ACTIVATE=1
 
 COPY . .
