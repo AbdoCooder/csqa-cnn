@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>CSQA-CNN — Dattes QC</title>
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <div class="container">
+    <header class="header">
+      <h1>CSQA-CNN — Dattes (Fresh / Dry)</h1>
+      <p class="subtitle">Interface simple pour tester la prédiction + rapport Gemini</p>
+    </header>
+
+    <section class="card">
+      <h2>1) Prédire la qualité (image)</h2>
+
+      <div class="row">
+        <label class="label">Adresse API</label>
+        <input id="apiBase" class="input" type="text" value="http://127.0.0.1:8000/docs" />
+      </div>
+
+      <div class="row">
+        <label class="label">Choisir une image</label>
+        <input id="fileInput" class="input" type="file" accept="image/*" />
+      </div>
+
+      <div class="row row-actions">
+        <button id="btnPredict" class="btn primary">Upload & Predict</button>
+        <button id="btnClear" class="btn">Clear</button>
+      </div>
+
+      <div class="split">
+        <div class="preview">
+          <div class="label">Aperçu</div>
+          <img id="previewImg" alt="preview" />
+          <div id="fileName" class="muted"></div>
+        </div>
+
+        <div class="result">
+          <div class="label">Résultat</div>
+          <div id="statusPredict" class="status muted">En attente…</div>
+          <div class="kv">
+            <div class="k">Classe</div><div id="predClass" class="v">—</div>
+            <div class="k">Confiance</div><div id="predConf" class="v">—</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>2) Générer un rapport QC (Gemini)</h2>
+      <p class="muted">Ici, “rejet” = <b>Dry</b>. Mets les chiffres de ton lot (batch).</p>
+
+      <div class="grid3">
+        <div>
+          <label class="label" for="total">Total</label>
+          <input id="total" class="input" type="number" min="0" value="100" />
+        </div>
+        <div>
+          <label class="label" for="fresh">Fresh</label>
+          <input id="fresh" class="input" type="number" min="0" value="82" />
+        </div>
+        <div>
+          <label class="label" for="dry">Dry</label>
+          <input id="dry" class="input" type="number" min="0" value="18" />
+        </div>
+      </div>
+
+      <div class="row row-actions">
+        <button id="btnReport" class="btn primary">Generate Report</button>
+        <button id="btnFillFromLast" class="btn">Use last prediction (1 image)</button>
+      </div>
+
+      <div class="row">
+        <div id="statusReport" class="status muted">En attente…</div>
+      </div>
+
+      <div class="row">
+        <label class="label">Rapport (Markdown)</label>
+        <textarea id="reportBox" class="textarea" rows="14" placeholder="Le rapport apparaîtra ici…"></textarea>
+      </div>
+    </section>
+
+    <footer class="footer muted">
+      Astuce: si tu changes de port Uvicorn, change “Adresse API” (ex: http://127.0.0.1:8007).
+    </footer>
+  </div>
+
+  <script src="./app.js"></script>
+</body>
+</html>
