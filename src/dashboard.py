@@ -755,7 +755,7 @@ def main():
     
     # Sidebar
     with st.sidebar:
-        st.image("https://via.placeholder.com/200x80/1e40af/ffffff?text=Smart+Harvest", use_container_width=True)
+        st.image("https://via.placeholder.com/200x80/1e40af/ffffff?text=Smart+Harvest", width=200)
         st.markdown("### 🎛️ Dashboard Controls")
         
         if st.button("🔄 Refresh Data"):
