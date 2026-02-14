@@ -179,43 +179,68 @@ def render_image_predictor():
     col_upload, col_result = st.columns([1, 1])
     
     with col_upload:
-        st.markdown("### 📤 Upload Image")
-        uploaded_file = st.file_uploader(
-            "Choose an image with date fruits",
+        st.markdown("### 📤 Upload Images")
+        uploaded_files = st.file_uploader(
+            "Choose one or more images with date fruits",
             type=['jpg', 'jpeg', 'png'],
-            help="Supported formats: JPG, JPEG, PNG. Can contain multiple fruits."
+            help="Supported formats: JPG, JPEG, PNG. Can contain multiple fruits per image.",
+            accept_multiple_files=True
         )
         
-        if uploaded_file is not None:
-            # Display uploaded image
+        if uploaded_files:
+            # Display uploaded images
             from PIL import Image
             
-            image = Image.open(uploaded_file)
-            st.image(image, caption="Uploaded Image", width=400)
+            st.markdown(f"**{len(uploaded_files)} image(s) selected**")
+            
+            # Show thumbnails
+            cols = st.columns(min(3, len(uploaded_files)))
+            for idx, uploaded_file in enumerate(uploaded_files):
+                with cols[idx % 3]:
+                    image = Image.open(uploaded_file)
+                    st.image(image, caption=f"Image {idx+1}", width=150)
             
             # Predict button
-            if st.button("🤖 Analyze All Fruits", type="primary"):
-                with st.spinner("🔬 Detecting and analyzing fruits..."):
+            if st.button("🤖 Analyze All Images", type="primary"):
+                with st.spinner(f"🔬 Analyzing {len(uploaded_files)} image(s)..."):
                     try:
-                        # Prepare file for API request
-                        uploaded_file.seek(0)
-                        files = {'file': (uploaded_file.name, uploaded_file, uploaded_file.type)}
+                        all_results = []
+                        total_fruits_found = 0
                         
-                        # Send request to API
-                        response = requests.post(
-                            f"{API_URL}/upload_and_predict/",
-                            files=files,
-                            timeout=30
-                        )
+                        # Process each image
+                        progress_bar = st.progress(0)
+                        for idx, uploaded_file in enumerate(uploaded_files):
+                            # Prepare file for API request
+                            uploaded_file.seek(0)
+                            files = {'file': (uploaded_file.name, uploaded_file.read(), uploaded_file.type)}
+                            
+                            # Send request to API
+                            response = requests.post(
+                                f"{API_URL}/upload_and_predict/",
+                                files=files,
+                                timeout=60
+                            )
+                            
+                            if response.status_code == 200:
+                                result = response.json()
+                                result['image_index'] = idx + 1
+                                result['original_filename'] = uploaded_file.name
+                                all_results.append(result)
+                                total_fruits_found += result['total_dates_found']
+                            else:
+                                st.warning(f"⚠️ Failed to process {uploaded_file.name}: {response.status_code}")
+                            
+                            # Update progress
+                            progress_bar.progress((idx + 1) / len(uploaded_files))
                         
-                        if response.status_code == 200:
-                            result = response.json()
-                            st.session_state.prediction_results = result
-                            st.session_state.uploaded_image = image
-                            st.success(f"✅ Analysis complete! Found {result['total_dates_found']} date fruit(s)")
-                            st.rerun()
-                        else:
-                            st.error(f"❌ API Error: {response.status_code} - {response.text}")
+                        # Store results
+                        st.session_state.prediction_results = {
+                            'batch_results': all_results,
+                            'total_images': len(uploaded_files),
+                            'total_fruits_found': total_fruits_found
+                        }
+                        st.success(f"✅ Analysis complete! Processed {len(all_results)} image(s), found {total_fruits_found} fruit(s)")
+                        st.rerun()
                         
                     except requests.exceptions.Timeout:
                         st.error("❌ Request timeout. The API might be starting up (cold start). Please try again.")
@@ -229,130 +254,150 @@ def render_image_predictor():
         
         if st.session_state.prediction_results:
             results = st.session_state.prediction_results
-            total_found = results['total_dates_found']
-            predictions = results['results']
             
-            # Overall statistics
-            fresh_count = sum(1 for p in predictions if p['predicted_class'] == 'Fresh')
-            dry_count = sum(1 for p in predictions if p['predicted_class'] == 'Dry')
-            avg_confidence = sum(p['confidence'] for p in predictions) / len(predictions) if predictions else 0
-            
-            # Summary card
-            st.markdown(f"""
-                <div style='background: rgba(30, 41, 59, 0.6); border-radius: 12px; 
-                            padding: 20px; margin-bottom: 20px; border: 1px solid #475569;'>
-                    <h3 style='color: #e2e8f0; margin-top: 0;'>📦 Batch Summary</h3>
-                    <div style='display: grid; grid-template-columns: 1fr 1fr; gap: 15px;'>
-                        <div style='background: rgba(16, 185, 129, 0.1); padding: 15px; border-radius: 8px; border: 1px solid #10b981;'>
-                            <div style='font-size: 32px; color: #10b981; font-weight: bold;'>{fresh_count}</div>
-                            <div style='color: #cbd5e1; font-size: 14px;'>Fresh (Accepted)</div>
-                        </div>
-                        <div style='background: rgba(239, 68, 68, 0.1); padding: 15px; border-radius: 8px; border: 1px solid #ef4444;'>
-                            <div style='font-size: 32px; color: #ef4444; font-weight: bold;'>{dry_count}</div>
-                            <div style='color: #cbd5e1; font-size: 14px;'>Dry (Rejected)</div>
-                        </div>
-                    </div>
-                    <div style='margin-top: 15px; padding-top: 15px; border-top: 1px solid #475569;'>
-                        <p style='color: #94a3b8; margin: 5px 0;'>Total Detected: <strong style='color: #e2e8f0;'>{total_found}</strong></p>
-                        <p style='color: #94a3b8; margin: 5px 0;'>Avg Confidence: <strong style='color: #e2e8f0;'>{avg_confidence:.1f}%</strong></p>
-                    </div>
-                </div>
-            """, unsafe_allow_html=True)
-            
-            # Individual predictions
-            st.markdown("#### 🔍 Individual Results")
-            
-            for idx, pred in enumerate(predictions, 1):
-                label = pred['predicted_class']
-                confidence = pred['confidence']
+            # Check if it's a batch of multiple images or single image
+            if 'batch_results' in results:
+                # Multiple images batch
+                batch_results = results['batch_results']
+                total_images = results['total_images']
+                total_fruits_found = results['total_fruits_found']
                 
-                # Color scheme
-                if label == 'Fresh':
-                    color = '#10b981'
-                    emoji = '✅'
-                    bg_color = 'rgba(16, 185, 129, 0.1)'
-                else:
-                    color = '#ef4444'
-                    emoji = '❌'
-                    bg_color = 'rgba(239, 68, 68, 0.1)'
+                # Calculate overall statistics
+                all_predictions = []
+                for img_result in batch_results:
+                    all_predictions.extend(img_result['results'])
                 
-                with st.expander(f"{emoji} Fruit #{idx}: {label} ({confidence:.1f}%)"):
-                    col1, col2 = st.columns([2, 1])
-                    
-                    with col1:
-                        st.markdown(f"""
-                            <div style='background: {bg_color}; border: 1px solid {color}; 
-                                        border-radius: 8px; padding: 15px;'>
-                                <h4 style='color: {color}; margin: 0 0 10px 0;'>{emoji} {label}</h4>
-                                <p style='color: #94a3b8; font-size: 14px; margin: 5px 0;'>
-                                    Confidence: <strong style='color: #e2e8f0;'>{confidence:.2f}%</strong>
-                                </p>
+                fresh_count = sum(1 for p in all_predictions if p['predicted_class'] == 'Fresh')
+                dry_count = sum(1 for p in all_predictions if p['predicted_class'] == 'Dry')
+                avg_confidence = sum(p['confidence'] for p in all_predictions) / len(all_predictions) if all_predictions else 0
+                
+                # Overall Summary
+                st.markdown(f"""
+                    <div style='background: rgba(30, 41, 59, 0.6); border-radius: 12px; 
+                                padding: 20px; margin-bottom: 20px; border: 1px solid #475569;'>
+                        <h3 style='color: #e2e8f0; margin-top: 0;'>📦 Batch Summary</h3>
+                        <div style='display: grid; grid-template-columns: 1fr 1fr; gap: 15px;'>
+                            <div style='background: rgba(16, 185, 129, 0.1); padding: 15px; border-radius: 8px; border: 1px solid #10b981;'>
+                                <div style='font-size: 32px; color: #10b981; font-weight: bold;'>{fresh_count}</div>
+                                <div style='color: #cbd5e1; font-size: 14px;'>Fresh (Accepted)</div>
                             </div>
-                        """, unsafe_allow_html=True)
+                            <div style='background: rgba(239, 68, 68, 0.1); padding: 15px; border-radius: 8px; border: 1px solid #ef4444;'>
+                                <div style='font-size: 32px; color: #ef4444; font-weight: bold;'>{dry_count}</div>
+                                <div style='color: #cbd5e1; font-size: 14px;'>Dry (Rejected)</div>
+                            </div>
+                        </div>
+                        <div style='margin-top: 15px; padding-top: 15px; border-top: 1px solid #475569;'>
+                            <p style='color: #94a3b8; margin: 5px 0;'>Images Processed: <strong style='color: #e2e8f0;'>{total_images}</strong></p>
+                            <p style='color: #94a3b8; margin: 5px 0;'>Total Fruits: <strong style='color: #e2e8f0;'>{total_fruits_found}</strong></p>
+                            <p style='color: #94a3b8; margin: 5px 0;'>Avg Confidence: <strong style='color: #e2e8f0;'>{avg_confidence:.1f}%</strong></p>
+                        </div>
+                    </div>
+                """, unsafe_allow_html=True)
+                
+                # Results by image
+                st.markdown("#### 🖼️ Results by Image")
+                
+                for img_result in batch_results:
+                    img_idx = img_result['image_index']
+                    img_name = img_result['original_filename']
+                    img_total = img_result['total_dates_found']
+                    predictions = img_result['results']
                     
-                    with col2:
-                        # Mini gauge
-                        fig = go.Figure(go.Indicator(
-                            mode="gauge+number",
-                            value=confidence,
-                            domain={'x': [0, 1], 'y': [0, 1]},
-                            gauge={
-                                'axis': {'range': [0, 100], 'tickcolor': "#e2e8f0"},
-                                'bar': {'color': color},
-                                'bgcolor': "rgba(30, 41, 59, 0.4)",
-                                'borderwidth': 2,
-                                'bordercolor': "#475569"
-                            }
-                        ))
-                        fig.update_layout(
-                            height=150,
-                            margin=dict(l=10, r=10, t=10, b=10),
-                            paper_bgcolor="rgba(0,0,0,0)",
-                            font={'color': "#e2e8f0", 'size': 10}
-                        )
-                        st.plotly_chart(fig, use_container_width=True)
-            
-            # Quality Assessment
-            rejection_rate = (dry_count / total_found * 100) if total_found > 0 else 0
-            if rejection_rate <= 10:
-                status = "🟢 EXCELLENT"
-                status_color = "#10b981"
-                status_msg = "Batch quality is excellent!"
-            elif rejection_rate <= 30:
-                status = "🟡 ACCEPTABLE"
-                status_color = "#f59e0b"
-                status_msg = "Batch quality is within acceptable range."
-            else:
-                status = "🔴 POOR"
-                status_color = "#ef4444"
-                status_msg = "High rejection rate detected. Review needed."
-            
-            st.markdown(f"""
-                <div style='background: linear-gradient(135deg, {status_color}22 0%, {status_color}11 100%); 
-                            border: 2px solid {status_color}; border-radius: 12px; 
-                            padding: 20px; margin-top: 20px; text-align: center;'>
-                    <h3 style='color: {status_color}; margin: 0;'>{status}</h3>
-                    <p style='color: #cbd5e1; margin: 10px 0 0 0;'>{status_msg}</p>
-                    <p style='color: #94a3b8; font-size: 14px; margin: 10px 0 0 0;'>
-                        Rejection Rate: <strong style='color: {status_color};'>{rejection_rate:.1f}%</strong>
-                    </p>
-                </div>
-            """, unsafe_allow_html=True)
+                    img_fresh = sum(1 for p in predictions if p['predicted_class'] == 'Fresh')
+                    img_dry = sum(1 for p in predictions if p['predicted_class'] == 'Dry')
+                    
+                    with st.expander(f"📷 Image {img_idx}: {img_name} ({img_total} fruit(s) - {img_fresh}✅ / {img_dry}❌)", expanded=(total_images == 1)):
+                        # Individual fruit results for this image
+                        for idx, pred in enumerate(predictions, 1):
+                            label = pred['predicted_class']
+                            confidence = pred['confidence']
+                            
+                            # Color scheme
+                            if label == 'Fresh':
+                                color = '#10b981'
+                                emoji = '✅'
+                                bg_color = 'rgba(16, 185, 129, 0.1)'
+                            else:
+                                color = '#ef4444'
+                                emoji = '❌'
+                                bg_color = 'rgba(239, 68, 68, 0.1)'
+                            
+                            col1, col2 = st.columns([2, 1])
+                            
+                            with col1:
+                                st.markdown(f"""
+                                    <div style='background: {bg_color}; border: 1px solid {color}; 
+                                                border-radius: 8px; padding: 10px; margin-bottom: 10px;'>
+                                        <h5 style='color: {color}; margin: 0;'>{emoji} Fruit #{idx}: {label}</h5>
+                                        <p style='color: #94a3b8; font-size: 13px; margin: 5px 0 0 0;'>
+                                            Confidence: <strong style='color: #e2e8f0;'>{confidence:.2f}%</strong>
+                                        </p>
+                                    </div>
+                                """, unsafe_allow_html=True)
+                            
+                            with col2:
+                                # Mini gauge
+                                fig = go.Figure(go.Indicator(
+                                    mode="gauge+number",
+                                    value=confidence,
+                                    domain={'x': [0, 1], 'y': [0, 1]},
+                                    gauge={
+                                        'axis': {'range': [0, 100], 'tickcolor': "#e2e8f0"},
+                                        'bar': {'color': color},
+                                        'bgcolor': "rgba(30, 41, 59, 0.4)",
+                                        'borderwidth': 2,
+                                        'bordercolor': "#475569"
+                                    }
+                                ))
+                                fig.update_layout(
+                                    height=120,
+                                    margin=dict(l=5, r=5, t=5, b=5),
+                                    paper_bgcolor="rgba(0,0,0,0)",
+                                    font={'color': "#e2e8f0", 'size': 9}
+                                )
+                                st.plotly_chart(fig, use_container_width=True)
+                
+                # Quality Assessment
+                rejection_rate = (dry_count / total_fruits_found * 100) if total_fruits_found > 0 else 0
+                if rejection_rate <= 10:
+                    status = "🟢 EXCELLENT"
+                    status_color = "#10b981"
+                    status_msg = "Batch quality is excellent!"
+                elif rejection_rate <= 30:
+                    status = "🟡 ACCEPTABLE"
+                    status_color = "#f59e0b"
+                    status_msg = "Batch quality is within acceptable range."
+                else:
+                    status = "🔴 POOR"
+                    status_color = "#ef4444"
+                    status_msg = "High rejection rate detected. Review needed."
+                
+                st.markdown(f"""
+                    <div style='background: linear-gradient(135deg, {status_color}22 0%, {status_color}11 100%); 
+                                border: 2px solid {status_color}; border-radius: 12px; 
+                                padding: 20px; margin-top: 20px; text-align: center;'>
+                        <h3 style='color: {status_color}; margin: 0;'>{status}</h3>
+                        <p style='color: #cbd5e1; margin: 10px 0 0 0;'>{status_msg}</p>
+                        <p style='color: #94a3b8; font-size: 14px; margin: 10px 0 0 0;'>
+                            Rejection Rate: <strong style='color: {status_color};'>{rejection_rate:.1f}%</strong>
+                        </p>
+                    </div>
+                """, unsafe_allow_html=True)
             
         else:
-            st.info("👆 Upload an image and click 'Analyze All Fruits' to see results")
+            st.info("👆 Upload one or more images and click 'Analyze All Images' to see results")
             st.markdown("""
                 <div style='background: rgba(30, 41, 59, 0.4); border-radius: 12px; 
                             padding: 20px; margin-top: 20px;'>
                     <h4 style='color: #94a3b8; margin-top: 0;'>💡 How it works:</h4>
                     <ol style='color: #cbd5e1;'>
-                        <li>Upload an image containing date fruits</li>
-                        <li>AI automatically detects all fruits in the image</li>
+                        <li>Upload one or more images containing date fruits</li>
+                        <li>AI automatically detects all fruits in each image</li>
                         <li>Each fruit is classified as Fresh or Dry</li>
-                        <li>View detailed results with confidence scores</li>
+                        <li>View detailed results grouped by image</li>
                     </ol>
                     <p style='color: #64748b; font-size: 12px; margin-bottom: 0;'>
-                        <strong>Note:</strong> The API uses advanced object detection to find multiple fruits in a single image.
+                        <strong>Note:</strong> The API uses advanced object detection to find multiple fruits per image.
                         First request may take 30-60 seconds due to cold start.
                     </p>
                 </div>
@@ -703,7 +748,7 @@ def main():
     # Header
     st.markdown("""
         <div class="main-header">
-            <h1>🍇 Smart Harvest Quality Control Dashboard</h1>
+            <h1>🫘 Smart Harvest Quality Control Dashboard</h1>
             <p>Real-time monitoring and intelligent reporting for date fruit processing</p>
         </div>
     """, unsafe_allow_html=True)
