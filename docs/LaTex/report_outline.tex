@@ -935,13 +935,73 @@ authentication, eliminating the need to manage database infrastructure.
 \label{sec:dashboard}
 % ────────────────────────────────────────────────────────────
 
-\subsection{Streamlit Dashboard}
+\subsection{Streamlit Dashboard Overview}
 
-The dashboard (\texttt{dashboard.py}) serves as the operator's control
-panel. It fetches prediction logs from Supabase, computes summary
-metrics, and renders visualisations.
+The dashboard (\texttt{dashboard.py}) serves as the comprehensive 
+management interface for production quality control. Deployed at 
+\url{https://csqa-cnn-dashboard.onrender.com}, it provides real-time 
+monitoring, batch image analysis, AI-powered reporting, and operational 
+insights to quality managers and line supervisors.
 
-Listing~\ref{lst:dashboard_metrics} shows the KPI computation.
+The interface is designed with three primary operational modes:
+
+\begin{enumerate}[nosep]
+    \item \textbf{Production Monitoring:} Real-time KPI tracking from 
+          logged predictions in the Supabase database.
+    \item \textbf{Batch Quality Inspection:} Upload and analyze multiple 
+          images simultaneously via API integration.
+    \item \textbf{AI Report Generation:} Generate time-based quality 
+          control reports with natural language summaries and PDF export.
+\end{enumerate}
+
+\subsection{User Interface Design}
+
+The dashboard implements a modern dark-theme interface optimised for 
+extended operator viewing sessions. The design follows industry-standard 
+color conventions: green (\texttt{\#10b981}) for accepted items, red 
+(\texttt{\#ef4444}) for rejected items, and blue (\texttt{\#3b82f6}) 
+for neutral UI elements.
+
+Listing~\ref{lst:dashboard_theme} shows the CSS-based theming system.
+
+\begin{lstlisting}[
+  language=Python, caption={Dark theme CSS injection in the dashboard 
+  (\texttt{dashboard.py}).}, label={lst:dashboard_theme},
+  basicstyle=\small\ttfamily, breaklines=true,
+  keywordstyle=\color{blue}, stringstyle=\color{red!60!black},
+  commentstyle=\color{green!50!black}, frame=single]
+st.markdown("""
+    <style>
+    .main {
+        background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+    }
+    .metric-card {
+        background: rgba(30, 41, 59, 0.6);
+        border-radius: 12px;
+        padding: 20px;
+        border: 1px solid #475569;
+    }
+    </style>
+""", unsafe_allow_html=True)
+\end{lstlisting}
+
+\paragraph{Key UI Components:}
+\begin{itemize}[nosep]
+    \item \textbf{Sidebar:} System status indicators (database connection, 
+          Gemini AI service), refresh controls, and contextual help.
+    \item \textbf{Main Panel:} Four-column KPI dashboard showing total 
+          processed items, fresh count, rejection count, and overall 
+          batch status.
+    \item \textbf{Visualisation Layer:} Interactive Plotly charts including 
+          gauge charts for rejection rate monitoring, pie charts for 
+          distribution analysis, and time-series graphs for temporal trends.
+\end{itemize}
+
+\subsection{Production Monitoring Features}
+
+The monitoring interface connects directly to the Supabase \texttt{logs} 
+table and computes aggregate statistics in real time. 
+Listing~\ref{lst:dashboard_metrics} demonstrates the KPI calculation.
 
 \begin{lstlisting}[
   language=Python, caption={Dashboard KPI computation
@@ -950,75 +1010,276 @@ Listing~\ref{lst:dashboard_metrics} shows the KPI computation.
   keywordstyle=\color{blue}, stringstyle=\color{red!60!black},
   commentstyle=\color{green!50!black}, frame=single]
 total_count = len(data)
-fresh_count = data['prediction'].value_counts()['Fresh']
-dry_count   = data['prediction'].value_counts()['Dry']
+fresh_count = data['prediction'].value_counts().get('Fresh', 0)
+dry_count = data['prediction'].value_counts().get('Dry', 0)
+dry_percentage = (dry_count / total_count * 100) if total_count > 0 else 0
 
-col1, col2, col3 = st.columns(3)
-col1.metric(label='Total',  value=total_count)
-col2.metric(label='Fresh',  value=fresh_count)
-col3.metric(label='Dry',    value=dry_count)
+# Status classification based on industrial thresholds
+if dry_percentage <= 5:
+    status = "GREEN OK"
+elif dry_percentage <= 15:
+    status = "YELLOW WARNING"
+else:
+    status = "RED CRITICAL"
+
+col1, col2, col3, col4 = st.columns(4)
+col1.metric("Total Processed", f"{total_count:,}")
+col2.metric("Fresh (Accepted)", f"{fresh_count:,}", 
+            f"{100-dry_percentage:.1f}%")
+col3.metric("Dry (Rejected)", f"{dry_count:,}", 
+            f"{dry_percentage:.1f}%")
+col4.metric("Status", status)
 \end{lstlisting}
 
-\begin{figure}[H]
-    \centering
-    % ┌──────────────────────────────────────────────────────┐
-    % │  `PLACEHOLDER': Screenshot of the Streamlit dashboard   │
-    % │  HOW TO CREATE:                                       │
-    % │  1. Run: streamlit run src/dashboard.py               │
-    % │  2. Wait for it to load with real data from Supabase  │
-    % │  3. Screenshot the full page (metrics + pie chart)    │
-    % │  4. Save as figures/ch3_dashboard.png                 │
-    % │  5. Uncomment the \includegraphics line below.        │
-    % └──────────────────────────────────────────────────────┘
-    %
-    % \includegraphics[width=0.85\textwidth]{figures/ch3_dashboard.png}
-    \fbox{\parbox{0.85\textwidth}{\centering\vspace{2.5cm}
-      \textbf{Dashboard Screenshot Pending}\\
-      KPI cards and class-distribution chart.
-    \vspace{2.5cm}}}
-    \caption{Dashboard UI placeholder. Replace with an exported screenshot from the deployed dashboard.}
-    \label{fig:dashboard}
-\end{figure}
+A gauge chart provides visual feedback on the current rejection rate, 
+with color-coded severity zones (green: 0--5\%, yellow: 5--15\%, 
+red: $>$15\%). Time-series visualisation aggregates predictions by hour, 
+enabling trend analysis and shift-based performance comparison.
 
-\subsection{LLM-Based Quality Manager}
+\subsection{Batch Image Analysis}
 
-The reporting module (\texttt{manager.py}) converts raw production
-statistics into a professional quality control report.  The
-\texttt{QualityManager} class classifies the current batch severity
-based on the loss rate and constructs a role-based prompt that is
-sent to a text-generation model.
+The dashboard integrates with the cloud API to provide on-demand quality 
+inspection of uploaded images. Operators can upload multiple images 
+simultaneously for batch analysis.
 
-Listing~\ref{lst:severity} shows the severity classification logic.
+Listing~\ref{lst:dashboard_batch} shows the multi-image upload and 
+processing logic.
 
 \begin{lstlisting}[
-  language=Python, caption={Severity classification and prompt
-  construction (\texttt{manager.py}).}, label={lst:severity},
+  language=Python, caption={Batch image upload and API integration 
+  (\texttt{dashboard.py}).}, label={lst:dashboard_batch},
   basicstyle=\small\ttfamily, breaklines=true,
   keywordstyle=\color{blue}, stringstyle=\color{red!60!black},
   commentstyle=\color{green!50!black}, frame=single]
-# Classify severity based on industrial thresholds
-if data.loss_rate > 15:
-    severity = "CRITICAL"
-elif data.loss_rate > 5:
-    severity = "WARNING"
-else:
-    severity = "ACCEPTABLE"
+uploaded_files = st.file_uploader(
+    "Choose one or more images with date fruits",
+    type=['jpg', 'jpeg', 'png'],
+    accept_multiple_files=True
+)
 
-prompt = f"""Quality Control Report for Date Packaging Co.
-PRODUCTION BATCH DATA:
-- Total Units Processed: {data.fresh + data.rotten}
-- Grade 1 (Fresh): {data.fresh} units
-- Grade 3 (Rejected): {data.rotten} units
-- Loss Rate: {data.loss_rate:.2f}%
-- Severity Status: {severity}
-..."""
+if st.button("Analyze All Images", type="primary"):
+    all_results = []
+    progress_bar = st.progress(0)
+    
+    for idx, uploaded_file in enumerate(uploaded_files):
+        uploaded_file.seek(0)
+        files = {'file': (uploaded_file.name, 
+                          uploaded_file.read(), 
+                          uploaded_file.type)}
+        
+        response = requests.post(
+            f"{API_URL}/upload_and_predict/",
+            files=files,
+            timeout=60
+        )
+        
+        if response.status_code == 200:
+            result = response.json()
+            all_results.append(result)
+        
+        progress_bar.progress((idx + 1) / len(uploaded_files))
 \end{lstlisting}
 
-The prompt uses three elements: (i)~numerical context,
-(ii)~a role instruction, and (iii)~an output format specification.
-A template-based
-\texttt{\_generate\_fallback\_report()} method ensures the system still
-produces a usable report even if the LLM call fails.
+\paragraph{Analysis Results Display:}
+\begin{itemize}[nosep]
+    \item \textbf{Batch Summary:} Aggregated statistics showing total 
+          images processed, total fruits detected, and Fresh/Dry breakdown.
+    \item \textbf{Per-Image Results:} Expandable sections for each uploaded 
+          image, displaying all detected fruits with individual confidence 
+          scores and mini-gauge visualizations.
+    \item \textbf{Quality Assessment:} Automated batch classification 
+          (EXCELLENT / ACCEPTABLE / POOR) based on overall rejection rate, 
+          with actionable recommendations.
+\end{itemize}
+
+The batch analysis feature uses the same detection and classification 
+pipeline as the IoT simulation (Section~\ref{sec:edge}), ensuring 
+consistency between automated and manual quality checks.
+
+\subsection{Time-Based Report Generation}
+
+The report generator module (\texttt{data\_fetcher.py}) enables flexible 
+time-range filtering for production analysis. Managers can generate 
+reports for predefined periods (last 24 hours, 7 days, 30 days) or 
+specify custom date ranges.
+
+Listing~\ref{lst:time_filter} demonstrates the time-range query 
+implementation.
+
+\begin{lstlisting}[
+  language=Python, caption={Time-based data aggregation 
+  (\texttt{data\_fetcher.py}).}, label={lst:time_filter},
+  basicstyle=\small\ttfamily, breaklines=true,
+  keywordstyle=\color{blue}, stringstyle=\color{red!60!black},
+  commentstyle=\color{green!50!black}, frame=single]
+def fetch_by_hours(self, hours: int) -> Dict:
+    """Fetch data for the last N hours."""
+    start_time = datetime.now() - timedelta(hours=hours)
+    start_time_str = start_time.isoformat()
+    
+    response = (
+        self.supabase.table("logs")
+        .select("*")
+        .gte("created_at", start_time_str)
+        .order("created_at")
+        .execute()
+    )
+    
+    data = response.data or []
+    return self._aggregate_data(data, f"Last {hours} hours")
+
+def _aggregate_data(self, data: list, time_period: str) -> Dict:
+    """Aggregate raw logs into statistics."""
+    total = len(data)
+    fresh = sum(1 for r in data 
+                if r.get("prediction", "").lower() == "fresh")
+    dry = sum(1 for r in data 
+              if r.get("prediction", "").lower() == "dry")
+    
+    return {
+        "total": total,
+        "fresh": fresh,
+        "dry": dry,
+        "time_period": time_period
+    }
+\end{lstlisting}
+
+The aggregated statistics are displayed in tabular format before report 
+generation, allowing operators to verify data completeness.
+
+\subsection{AI-Powered Report Generation}
+
+The reporting system integrates Google's Gemini 2.5 Flash model to 
+transform structured production data into natural-language executive 
+summaries. Reports follow a standardised template optimised for 
+managerial decision-making.
+
+Listing~\ref{lst:gemini_prompt} shows the prompt engineering strategy.
+
+\begin{lstlisting}[
+  language=Python, caption={Gemini prompt construction for quality reports 
+  (\texttt{gemini\_reporter.py}).}, label={lst:gemini_prompt},
+  basicstyle=\small\ttfamily, breaklines=true,
+  keywordstyle=\color{blue}, stringstyle=\color{red!60!black},
+  commentstyle=\color{green!50!black}, frame=single]
+prompt = f"""You are a Quality Control Manager.
+
+**Production Data for {time_period}:**
+- Total Units: {total}
+- Fresh (Accepted): {fresh} ({(fresh/total)*100:.1f}%)
+- Dry (Rejected): {dry} ({reject_rate:.1f}%)
+- Severity: {severity}
+
+Generate a concise Markdown report with:
+1. Key metrics table
+2. Trend analysis
+3. Actionable recommendations
+4. Quality assessment
+
+Minimize prose, prioritize data visualization."""
+\end{lstlisting}
+
+The LLM constructs reports containing:
+\begin{itemize}[nosep]
+    \item Executive summary with status classification
+    \item Tabular presentation of key quality indicators
+    \item Severity-based recommendations
+    \item Timestamp and report metadata
+\end{itemize}
+
+Generated reports are rendered in the dashboard using Streamlit's native 
+Markdown renderer.
+
+\subsection{PDF Export Functionality}
+
+The PDF generation module (\texttt{pdf\_generator.py}) converts Markdown 
+reports into professionally styled PDF documents using WeasyPrint. 
+Reports are saved to the \texttt{reports/} directory with timestamped 
+filenames.
+
+Listing~\ref{lst:pdf_gen} shows the PDF conversion pipeline.
+
+\begin{lstlisting}[
+  language=Python, caption={Markdown-to-PDF conversion 
+  (\texttt{pdf\_generator.py}).}, label={lst:pdf_gen},
+  basicstyle=\small\ttfamily, breaklines=true,
+  keywordstyle=\color{blue}, stringstyle=\color{red!60!black},
+  commentstyle=\color{green!50!black}, frame=single]
+def markdown_to_pdf(self, markdown_content: str, filename: str) -> str:
+    """Convert Markdown report to styled PDF."""
+    html_content = markdown.markdown(markdown_content, 
+                                     extensions=['tables', 'fenced_code'])
+    
+    styled_html = f"""
+    <html>
+    <head>
+        <style>
+            body {{ font-family: 'Arial', sans-serif; margin: 40px; }}
+            table {{ border-collapse: collapse; width: 100%; }}
+            th {{ background-color: #3b82f6; color: white; }}
+            td, th {{ border: 1px solid #ddd; padding: 12px; }}
+        </style>
+    </head>
+    <body>{html_content}</body>
+    </html>
+    """
+    
+    pdf_path = os.path.join(self.reports_dir, f"{filename}.pdf")
+    HTML(string=styled_html).write_pdf(pdf_path)
+    return pdf_path
+\end{lstlisting}
+
+The dashboard provides a download button for the generated PDF, 
+enabling operators to archive reports or distribute them to stakeholders.
+
+\subsection{Connection Status Monitoring}
+
+The sidebar displays real-time connection status for critical external 
+services (Supabase database, Gemini AI). Environment variable validation 
+occurs at dashboard startup, with clear error messages and setup 
+instructions for missing credentials.
+
+\begin{lstlisting}[
+  language=Python, caption={Service connection validation 
+  (\texttt{dashboard.py}).}, label={lst:status_check},
+  basicstyle=\small\ttfamily, breaklines=true,
+  keywordstyle=\color{blue}, stringstyle=\color{red!60!black},
+  commentstyle=\color{green!50!black}, frame=single]
+db_url = os.environ.get("DB_API")
+db_key = os.environ.get("DB_SERVICE_ROLE_KEY")
+gemini_key = os.environ.get("GEMINI_API_KEY")
+
+if db_url and db_key:
+    st.success("Database Connected")
+else:
+    st.error("Database Not Configured")
+
+if gemini_key:
+    st.success("Gemini AI Connected")
+else:
+    st.warning("Gemini AI Not Configured")
+\end{lstlisting}
+
+This feature prevents silent failures and guides operators through 
+troubleshooting when services are unavailable.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.85\textwidth]{figures/ch3_dashboard.png}
+    \caption{This interface provides real-time monitoring of date fruit processing,
+    displaying key metrics such as batch status, rejection rates,
+    and hourly quality trends to identify critical issues.}
+    \label{fig:dashboard}
+  \end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.85\textwidth]{figures/ch3_dashboard_2.png}
+    \caption{This section features tools for uploading images for AI-driven fruit
+    classification and generating detailed quality control reports based on
+    customizable time ranges.}
+    \label{fig:dashboard_2}
+  \end{figure}
 
 \clearpage
 % ────────────────────────────────────────────────────────────
