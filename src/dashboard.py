@@ -355,7 +355,7 @@ def render_image_predictor():
                                     paper_bgcolor="rgba(0,0,0,0)",
                                     font={'color': "#e2e8f0", 'size': 9}
                                 )
-                                st.plotly_chart(fig, use_container_width=True)
+                                st.plotly_chart(fig, use_container_width=True, key=f"fruit_gauge_{idx}")
                 
                 # Quality Assessment
                 rejection_rate = (dry_count / total_fruits_found * 100) if total_fruits_found > 0 else 0
@@ -828,7 +828,7 @@ export GEMINI_API_KEY="your_api_key"
     with viz_col1:
         st.markdown("### 🎯 Loss Rate Monitor")
         gauge_fig = create_gauge_chart(dry_percentage, "Rejection Rate (%)", 30)
-        st.plotly_chart(gauge_fig, use_container_width=True)
+        st.plotly_chart(gauge_fig, use_container_width=True, key="rejection_rate_gauge")
     
     with viz_col2:
         st.markdown("### 📊 Distribution Analysis")
@@ -855,13 +855,13 @@ export GEMINI_API_KEY="your_api_key"
             font=dict(color="#e2e8f0"),
             title_font=dict(color="#e2e8f0", size=16)
         )
-        st.plotly_chart(pie_fig, use_container_width=True)
+        st.plotly_chart(pie_fig, use_container_width=True, key="distribution_pie_chart")
     
     # Time series chart
     st.markdown("---")
     time_series_fig = create_time_series_chart(data)
     if time_series_fig:
-        st.plotly_chart(time_series_fig, use_container_width=True)
+        st.plotly_chart(time_series_fig, use_container_width=True, key="time_series_chart")
     
     # Image prediction section
     render_image_predictor()
